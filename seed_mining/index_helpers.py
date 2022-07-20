@@ -1,9 +1,7 @@
-#!/bin/python3
-import os
+#!/pkg/python/3.7.4/bin/python3
 from collections import defaultdict
 from general_helpers import *
 
-# helps with file paths of cached blant output
 class Index(defaultdict):
     def __init__(self):
         defaultdict.__init__(self, list)
@@ -11,11 +9,21 @@ class Index(defaultdict):
     def add_entry(self, entry):
         self[entry.get_key()].append(entry)
 
+    def __eq__(self, other):
+        if self.keys() != other.keys():
+            return False
+
+        for key in self:
+            if set(self[key]) != set(other[key]):
+                return False
+
+        return True
+
 
 class IndexEntry:
     def __init__(self, entry_str):
         splitted_str = entry_str.split(' ')
-        self._graphlet_id = int(splitted_str[0])
+        self._graphlet_id = splitted_str[0] # not an int because we might augment it with bno (base node orbit)
         self._node_arr = splitted_str[1:]
         self._index_of = dict()
 
@@ -63,17 +71,38 @@ class IndexEntry:
     def __len__(self):
         return len(self._node_arr)
 
+    def __eq__(self, other):
+        return set(self._node_arr) == set(other._node_arr)
 
-def get_indexes_cache_dir():
-    return f'{get_seeding_dir()}/indexes'
+    def __hash__(self):
+        return hash(frozenset(self._node_arr))
 
-def get_index_path(species, percent=0, orbit=0):
-    if 'syeast' in species:
-        lDEG = 3
+
+# algo None refers to the original algorithm (Henry's)
+def get_index_path(gtag, algo='bno', percent=0, orbit=0, alph=True, lDEG=None):
+    if lDEG == None:
+        if 'syeast' in gtag:
+            # lDEG = 3
+            lDEG = 2
+        else:
+            lDEG = 2
+
+    if alph == None: # if alph is none, use old index directory
+        index_dir = 'messy_blant_out'
+        add_on = ''
     else:
-        lDEG = 2
+        index_dir = 'blant_out'
+        add_on = '-alph' if alph else '-rev'
 
-    return f'{get_indexes_cache_dir()}/p{percent}-o{orbit}-{species}-lDEG{lDEG}.out'
+    if algo == None:
+        algo_str = ''
+    else:
+        algo_str = f'-{algo}'
+
+    return f'{CACHE_BASE_DIR}/{index_dir}/p{percent}-o{orbit}-{gtag}{algo_str}-lDEG{lDEG}{add_on}.out'
+
+def get_notopedge_index_path(gtag, percent=0, orbit=0, lDEG=2):
+    return f'{CACHE_BASE_DIR}/special_blant_out/p{percent}-o{orbit}-{gtag}-lDEG{lDEG}-notopedge.out'
 
 def read_in_index(index_path, k):
     with open(index_path, 'r') as index_file:
@@ -99,6 +128,17 @@ def read_in_entry_list(index_path, k):
 
         return entry_list
 
+def get_node_distr(index):
+    distr = defaultdict(int)
+
+    for entry_list in index.values():
+        for entry in entry_list:
+            for node in entry.get_node_arr():
+                distr[node] += 1
+
+    return distr
+
 if __name__ == '__main__':
-    index = read_in_index(get_index_path('mouse'), 8)
-    assert_with_prints(len(index), 564, 'len(index)')
+    index = read_in_index(get_index_path('syeast0', lDEG=2), 8)
+    node_distr = get_node_distr(index)
+    print_dict(node_distr)
