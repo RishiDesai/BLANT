@@ -1,7 +1,6 @@
 #!/bin/python3
 from index_helpers import *
 from graph_helpers import *
-from general_helpers import *
 
 class PatchedIndexEntry:
     def __init__(self, entry1, entry2, adj_set):
@@ -78,11 +77,20 @@ def get_matching_poses_list(entry_list, prox, target_num_matching):
     total_to_check = len(entry_list)
     num_checked = 0
 
+    # handle negative prox (means equals instead of <=)
+    if prox < 0:
+        prox = -prox
+        i_start_offset = prox
+    else:
+        i_start_offset = 1
+
+    i_end_offset = prox + 1
+
     for i in range(0, len(entry_list)):
         matching_poses_list.append([])
         outer_entry = entry_list[i]
 
-        for j in range(i + prox, i + prox + 1):
+        for j in range(i + i_start_offset, i + i_end_offset):
             if j >= len(entry_list):
                 continue
 
@@ -90,9 +98,9 @@ def get_matching_poses_list(entry_list, prox, target_num_matching):
             curr_num_matching = outer_entry.get_num_matching(inner_entry)
 
             if target_num_matching < 0:
-                do_append = curr_num_matching >= -1 * target_num_matching
+                do_append = curr_num_matching == -1 * target_num_matching
             else:
-                do_append = curr_num_matching == target_num_matching
+                do_append = curr_num_matching >= target_num_matching
 
             if do_append:
                 matching_poses_list[i].append(j)
@@ -101,7 +109,7 @@ def get_matching_poses_list(entry_list, prox, target_num_matching):
 
     return matching_poses_list
 
-def get_patched_index(k, index_path, graph_path, prox=6, target_num_matching=6):
+def get_patched_index(k, index_path, graph_path, prox=2, target_num_matching=1):
     entry_list = read_in_entry_list(index_path, k)
     matching_poses_list = get_matching_poses_list(entry_list, prox, target_num_matching)
     adj_set = read_in_adj_set(graph_path)
@@ -113,8 +121,3 @@ def get_patched_index(k, index_path, graph_path, prox=6, target_num_matching=6):
             patched_index.add_entry(patched_entry)
 
     return patched_index
-
-if __name__ == '__main__':
-    patched_index = get_patched_index(8, get_index_path('mouse'), get_graph_path('mouse'), 6, 6)
-    print(len(patched_index))
-    assert_with_prints(len(patched_index), 6833, 'len(patched_index)')
