@@ -313,10 +313,51 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 
 .PHONY: test_fast
 
+### nauty library targets (Phase 1: cross-validation only) ###
+
+NAUTY_DIR = src/nauty
+NAUTY_SRCS = nauty.c nautil.c nausparse.c naugraph.c schreier.c naurng.c
+NAUTY_OBJS = $(addprefix $(OBJDIR)/nauty_, $(NAUTY_SRCS:.c=.o))
+NAUTY_CFLAGS = -O3 -DWORDSIZE=64
+
+$(OBJDIR)/nauty_%.o: $(NAUTY_DIR)/%.c | $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR)
+
+$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h | libwayne $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_COMP)
+
+geng: $(NAUTY_DIR)/geng.c $(NAUTY_OBJS) $(OBJDIR)/nauty_gtools.o
+	$(GCC) $(NAUTY_CFLAGS) -o $@ $< $(NAUTY_OBJS) $(OBJDIR)/nauty_gtools.o -I $(NAUTY_DIR) -lm -lpthread
+
+$(OBJDIR)/nauty_gtools.o: $(NAUTY_DIR)/gtools.c | $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR)
+
+tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_OBJS) | libwayne $(OBJDIR)
+	@mkdir -p tests
+	$(GCC) $(NAUTY_CFLAGS) -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_OBJS) -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_BOTH)
+
+test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_OBJS) | libwayne $(OBJDIR)
+	$(GCC) $(NAUTY_CFLAGS) -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_OBJS) -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_BOTH)
+
+.PHONY: cross-validate
+cross-validate: tests/cross-validate-nauty $(canon_all)
+	@for k in 3 4 5 6 7; do \
+		echo "Cross-validating k=$$k..."; \
+		./tests/cross-validate-nauty $$k || exit 1; \
+	done
+	@echo "All cross-validations passed (k=3 through k=7)"
+
+$(OBJDIR):
+	@mkdir -p $(OBJDIR)
+
 ### Cleaning ###
 
 clean:
 	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
+	@/bin/rm -f geng test-nauty-canonical tests/cross-validate-nauty
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
