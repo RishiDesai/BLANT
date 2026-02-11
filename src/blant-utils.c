@@ -274,15 +274,37 @@ int nwhn_asc_rev_comp_func(const void *a, const void *b) {
     }
 }
 
+// Fast inline adjacency check for sparse non-complement graphs: scan the shorter neighbor list.
+static inline Boolean _FastAreConnectedUtil(GRAPH *G, unsigned i, unsigned j)
+{
+    unsigned me, other, n, k;
+    const unsigned *neighbors;
+    if(G->degree[i] < G->degree[j]) { me = i; other = j; }
+    else { me = j; other = i; }
+    n = G->degree[me];
+    neighbors = G->neighbor[me];
+    for(k=0; k<n; k++)
+	if(neighbors[k] == other)
+	    return true;
+    return false;
+}
+
 // Given the big graph G and a set of nodes in V, return the TINY_GRAPH created from the induced subgraph of V on G.
 TINY_GRAPH *TinyGraphInducedFromGraph(TINY_GRAPH *g, GRAPH *G, unsigned *Varray)
 {
     unsigned i, j;
     TinyGraphEdgesAllDelete(g);
     assert(!G->selfAllowed);
-    for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
-        if(GraphAreConnected(G, Varray[i], Varray[j]))
-            TinyGraphConnect(g, i, j);
+    if(G->sparse && !G->useComplement) {
+	// Fast path: use direct neighbor array scan
+	for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
+	    if(_FastAreConnectedUtil(G, Varray[i], Varray[j]))
+		TinyGraphConnect(g, i, j);
+    } else {
+	for(i=0; i < g->n; i++) for(j=i+1; j < g->n; j++)
+	    if(GraphAreConnected(G, Varray[i], Varray[j]))
+		TinyGraphConnect(g, i, j);
+    }
     return g;
 }
 
