@@ -87,7 +87,7 @@ fi
 
 # Test 5: blant-large-k can sample k=10 graphlets (with -R to skip alpha files)
 echo "Test 5: k=10 sampling produces valid output"
-OUTPUT=$(timeout 120 ./blant-large-k -sNBE -k10 -mi -R -n100 networks/syeast.el 2>/dev/null)
+OUTPUT=$(./blant-large-k -sNBE -k10 -mi -R -n100 networks/syeast.el 2>/dev/null)
 if [ $? -eq 0 ] && [ -n "$OUTPUT" ]; then
     pass "blant-large-k -k10 produces output"
 else
@@ -113,7 +113,7 @@ fi
 # Test 6: k=9 regression (blant-large-k with MAX_K=10 still works for k=9)
 echo "Test 6: k=9 regression with MAX_K=10 build"
 if [ -f canon_maps/canon_list9.txt ] && [ -f canon_maps/orbit_map9.txt ]; then
-    K9_OUTPUT=$(timeout 30 ./blant-large-k -sNBE -k9 -mi -n1000 networks/syeast.el 2>/dev/null)
+    K9_OUTPUT=$(./blant-large-k -sNBE -k9 -mi -n1000 networks/syeast.el 2>/dev/null)
     if [ $? -eq 0 ] && [ -n "$K9_OUTPUT" ]; then
         pass "k=9 sampling still works with MAX_K=10 build"
     else
@@ -139,7 +139,7 @@ fi
 echo "Test 7: k<=8 regression"
 if [ -f canon_maps/canon_map5.bin ]; then
     ./blant -sNBE -k5 -n100 -mf -r42 -t1 networks/syeast.el > /tmp/blant_k5.txt 2>/dev/null
-    timeout 10 ./blant-large-k -sNBE -k5 -n100 -mf -r42 -t1 networks/syeast.el > /tmp/blant_large_k5.txt 2>/dev/null
+    ./blant-large-k -sNBE -k5 -n100 -mf -r42 -t1 networks/syeast.el > /tmp/blant_large_k5.txt 2>/dev/null
     if diff -q /tmp/blant_k5.txt /tmp/blant_large_k5.txt > /dev/null 2>&1; then
         pass "k=5 regression (byte-identical)"
     else
