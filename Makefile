@@ -364,7 +364,7 @@ $(OBJDIR):
 
 ### Large-K support (k=9, k=10) using nauty ###
 
-LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=9
+LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10
 
 # For large-k tools, we need to recompile tinygraph.c with TINY_SET_SIZE=16
 # because the pre-compiled libwayne has MAX_TSET=8.

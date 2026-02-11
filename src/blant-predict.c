@@ -6,7 +6,11 @@
 
 static int _predictOrd = -1;
 int _predictOrbit1 = -1, _predictOrbit2=-1;
+#if MAX_K > 8
+static int (*_PredictMotifCount)[MAX_K][MAX_K] = NULL; // dynamically allocated for large-k
+#else
 static int _PredictMotifCount[MAX_CANONICALS][MAX_K][MAX_K];
+#endif
 static float **_PredictCount; // will be allocated later
 static GRAPH *_G;
 
@@ -77,6 +81,10 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_ty
 void Predict_Init(GRAPH *G) {
     assert(0 < _predictOrbit1 && _predictOrbit1 < _numOrbits);
     assert(0 < _predictOrbit2 && _predictOrbit2 < _numOrbits);
+#if MAX_K > 8
+    if(!_PredictMotifCount)
+	_PredictMotifCount = (int(*)[MAX_K][MAX_K]) Calloc(_numCanon, sizeof(int) * MAX_K * MAX_K);
+#endif
 
     if(_orbitCanonMapping[_predictOrbit1] != _orbitCanonMapping[_predictOrbit2])
 	Fatal("orbit pair %d:%d must be in the same canonical, but they're in %d and %d, respectively",

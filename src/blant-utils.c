@@ -30,7 +30,11 @@ typedef unsigned char kperm[5]; // 4 bits per node x 10 nodes = 40 bits = 5 byte
 //static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 kperm *Permutations = NULL; // Allocating memory dynamically
 
+#if MAX_K > 8
+static int (*_magicTable)[12] = NULL; // dynamically allocated for large-k builds
+#else
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
+#endif
 
 // Comparison function for binary search on Gint_type arrays (used by k>8 nauty path)
 #if MAX_K > 8
@@ -176,6 +180,28 @@ void SetGlobalCanonMaps(void)
     } else {
 	_Bk = 0; // k>8: no flat table, _Bk is not meaningful
     }
+
+#if MAX_K > 8
+    // Dynamic allocation of large arrays for k>8 builds.
+    // Allocate to MAX_CANONICALS/MAX_ORBITS since the exact counts aren't known yet.
+    // Heap allocation of ~4 GB is fine; BSS of this size would overflow the linker.
+    _canonList = (Gint_type*) Calloc(MAX_CANONICALS, sizeof(Gint_type));
+    _canonNumEdges = (char*) Calloc(MAX_CANONICALS, sizeof(char));
+    _alphaList = (Gint_type*) Calloc(MAX_CANONICALS, sizeof(Gint_type));
+    _canonNumStarMotifs = (int*) Calloc(MAX_CANONICALS, sizeof(int));
+    _outputMapping = (int*) Calloc(MAX_CANONICALS, sizeof(int));
+    _graphletCount = (double*) Calloc(MAX_CANONICALS, sizeof(double));
+    _graphletConcentration = (double*) Calloc(MAX_CANONICALS, sizeof(double));
+    _batchRawCount = (unsigned long*) Calloc(MAX_CANONICALS, sizeof(unsigned long));
+    _graphletDegreeVector = (double**) Calloc(MAX_CANONICALS, sizeof(double*));
+    _orbitList = (Gint_type(*)[MAX_K]) Calloc(MAX_CANONICALS, sizeof(Gint_type) * MAX_K);
+    _orbitCanonMapping = (Gordinal_type*) Calloc(MAX_ORBITS, sizeof(Gordinal_type));
+    _orbitCanonNodeMapping = (char*) Calloc(MAX_ORBITS, sizeof(char));
+    _connectedOrbits = (int*) Calloc(MAX_ORBITS, sizeof(int));
+    _orbitDegreeVector = (double**) Calloc(MAX_ORBITS, sizeof(double*));
+    _magicTable = (int(*)[12]) Calloc(MAX_CANONICALS, sizeof(int) * 12);
+#endif
+
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
