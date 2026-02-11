@@ -961,7 +961,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 _numWindowRep = 0;
                 if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
 			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
-                    windowRepInt = maxBk;
+                    windowRepInt = (_k <= 8) ? (int)maxBk : (int)_numCanon;
                 if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D ||
 			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
                     windowRepInt = -1;

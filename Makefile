@@ -364,7 +364,7 @@ $(OBJDIR):
 
 ### Large-K support (k=9, k=10) using nauty ###
 
-LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10
+LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=9
 
 # For large-k tools, we need to recompile tinygraph.c with TINY_SET_SIZE=16
 # because the pre-compiled libwayne has MAX_TSET=8.
@@ -433,8 +433,8 @@ $(OBJDIR)/large-k-%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | libwayne $(OBJDIR)
 	@mkdir -p $(dir $@)
 	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
 
-blant-large-k: libwayne $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(NAUTY_LIB) | $(LIBWAYNE_HOME)/C++/mt19937.o
-	$(CXX) $(LARGE_K_CFLAGS) -o $@ $(OBJDIR)/libblant-large-k.o $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) $(NAUTY_LINK)
+blant-large-k: libwayne $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(NAUTY_LIB) | $(LIBWAYNE_HOME)/C++/mt19937.o
+	$(CXX) $(LARGE_K_CFLAGS) -o $@ $(OBJDIR)/libblant-large-k.o $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) $(NAUTY_LINK)
 
 .PHONY: k9 k10
 k9: blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt

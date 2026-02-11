@@ -17,7 +17,7 @@ static void PreProcessPredict(TINY_GRAPH *g, int topCanon)
 #if PARANOID_ASSERTS
     assert(g->n == _k && TinyGraphNumReachableNodes(g, 0)==g->n);
 #endif
-    int i,j, Gint = TinyGraph2Int(g,_k), GintOrd=_K[Gint];
+    int i,j, Gint = TinyGraph2Int(g,_k), GintOrd=L_K(Gint);
     unsigned char perm[MAX_K];
     memset(perm, 0, _k);
     ExtractPerm(perm, Gint);
@@ -59,7 +59,7 @@ void Predict_ProcessGraphlet(GRAPH *G, unsigned Varray[], TINY_GRAPH *g, Gint_ty
     assert(TinyGraphNumReachableNodes(g, 0)==g->n);
 #endif
     unsigned i,j;
-    assert(Gint==TinyGraph2Int(g,_k) && GintOrd==_K[Gint]);
+    assert(Gint==TinyGraph2Int(g,_k) && GintOrd==L_K(Gint));
     assert(_g_overcount);
     unsigned char perm[MAX_K];
     memset(perm, 0, _k);
@@ -100,7 +100,7 @@ void Predict_Init(GRAPH *G) {
     for(Gordinal_type c=0; c<_numCanon; c++) {
 	if(!SetIn(_connectedCanonicals, c)) continue;
 	int GintCanonInt = _canonList[c];
-	if(_K[GintCanonInt] != c) Fatal("_K[%d]=%d when c=%d", GintCanonInt, _K[GintCanonInt], c);
+	if(L_K(GintCanonInt) != c) Fatal("L_K(%d)=%d when c=%d", (int)GintCanonInt, (int)L_K(GintCanonInt), (int)c);
 	TinyGraphEdgesAllDelete(T);
 	Int2TinyGraph(T, GintCanonInt);
 	assert(TinyGraphNumReachableNodes(T, 0)==_k && T->n == _k);
