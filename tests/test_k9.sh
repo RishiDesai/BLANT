@@ -16,7 +16,7 @@ echo ""
 # Test 1: Mathematical constants - canon_list9.txt
 echo "Test 1: canon_list9.txt mathematical constants"
 HEADER=$(head -1 canon_maps/canon_list9.txt)
-LINES=$(wc -l < canon_maps/canon_list9.txt)
+LINES=$(wc -l < canon_maps/canon_list9.txt | tr -d ' ')
 if [ "$HEADER" = "274668" ]; then
     pass "canon_list9.txt header says 274668"
 else
@@ -31,7 +31,7 @@ fi
 # Test 2: orbit_map9.txt mathematical constants
 echo "Test 2: orbit_map9.txt mathematical constants"
 ORBIT_HEADER=$(head -1 canon_maps/orbit_map9.txt)
-ORBIT_LINES=$(wc -l < canon_maps/orbit_map9.txt)
+ORBIT_LINES=$(wc -l < canon_maps/orbit_map9.txt | tr -d ' ')
 if [ "$ORBIT_HEADER" = "2208612" ]; then
     pass "orbit_map9.txt header says 2208612 orbits"
 else
@@ -45,7 +45,7 @@ fi
 
 # Test 3: geng cross-check
 echo "Test 3: geng produces exactly 274668 graphs for k=9"
-GENG_COUNT=$(./geng 9 2>/dev/null | wc -l)
+GENG_COUNT=$(./geng 9 2>/dev/null | wc -l | tr -d ' ')
 if [ "$GENG_COUNT" = "274668" ]; then
     pass "geng 9 produces 274668 graphs"
 else
@@ -107,7 +107,7 @@ echo "Test 7: Self-consistency check (canonical idempotency)"
 # For each canonical in canon_list9.txt, verify NautyCanonical(Int2TinyGraph(canon_gint)) == canon_gint
 # We'll do a quick spot check using the existing cross-validate infrastructure
 # by checking that L_K(canon_gint) returns the correct ordinal for a sample of canonicals
-SPOT_CHECK=$(./blant-large-k -sNBE -k9 -mi -n1000 networks/syeast.el 2>/dev/null | awk '{print $1}' | sort -nu | wc -l)
+SPOT_CHECK=$(./blant-large-k -sNBE -k9 -mi -n1000 networks/syeast.el 2>/dev/null | awk '{print $1}' | sort -nu | wc -l | tr -d ' ')
 if [ "$SPOT_CHECK" -gt 10 ]; then
     pass "Sampling hits $SPOT_CHECK distinct canonicals (diversity check)"
 else
