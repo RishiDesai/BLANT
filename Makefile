@@ -169,7 +169,7 @@ blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # 
 
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | libwayne
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(LIBWAYNE_COMP)
 
