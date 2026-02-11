@@ -207,7 +207,7 @@ make-orca-jesse-blant-table: libwayne $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/m
 cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
 	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
 
-$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
+$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC) | libwayne
 	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
 
 ### Object Files/Prereqs ###
