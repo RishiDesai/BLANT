@@ -167,9 +167,11 @@ blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # 
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	./canon-upper.sh
 
+BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
+
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
+	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(LIBWAYNE_COMP)
 
 synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
@@ -219,7 +221,7 @@ $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
-	$(CC) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
+	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
 
 $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o

@@ -183,6 +183,46 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 // graphlet. We then add all the neighbors of THAT new node to the
 // "one step outside V" set.
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
+// Fast inline adjacency check for sparse graphs: scan the shorter neighbor list.
+// Equivalent to GraphAreConnected for non-complement sparse graphs, but avoids function call overhead.
+static inline Boolean _FastAreConnected(GRAPH *G, unsigned i, unsigned j)
+{
+    unsigned me, other, n, k;
+    const unsigned *neighbors;
+    if(G->degree[i] < G->degree[j]) { me = i; other = j; }
+    else { me = j; other = i; }
+    n = G->degree[me];
+    neighbors = G->neighbor[me];
+    for(k=0; k<n; k++)
+	if(neighbors[k] == other)
+	    return true;
+    return false;
+}
+
+// Compute Gint directly from the big graph G and Varray, without building a TINY_GRAPH.
+// This is equivalent to: TinyGraphInducedFromGraph(g, G, Varray) followed by TinyGraph2Int(g, k).
+static inline Gint_type _FastGraphletToGint(GRAPH *G, unsigned *Varray, int k)
+{
+    int i, j, bitPos=0;
+    Gint_type Gint = 0;
+#if LOWER_TRIANGLE
+    for(i=k-1;i>0;i--)
+    {
+        for(j=i-1;j>=0;j--)
+#else
+    for(i=k-2;i>=0;i--)
+    {
+        for(j=k-1;j>i;j--)
+#endif
+        {
+	    if(_FastAreConnected(G, Varray[i], Varray[j]))
+		Gint |= (((Gint_type)1) << bitPos);
+            bitPos++;
+        }
+    }
+    return Gint;
+}
+
 double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums)
 {
     int i, j;
@@ -219,43 +259,48 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     SetAdd(V, Varray[0]);
     SetAdd(V, Varray[1]);
 
-    SET *outSet = SetAlloc(G->n);
-    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
-    if(G->n > outSet->maxElem)
-	SetResize(outSet, G->n);
-    else
-	SetEmpty(outSet);
-    // The below loops over neighbors can take a long time for large graphs with high mean degree. May be faster
-    // with bit operations if we stored the adjacency matrix... which may be too big to store for big graphs. :-(
-    int nv0, nv1, nBuf=0; for(i=0; i < GraphDegree(G,Varray[0]); i++)
-    {
-	nv0 = GraphNextNeighbor(G,Varray[0],&nBuf); assert(nv0 != -1);
-	if(nv0 != Varray[1])
-	{
-#if PARANOID_ASSERTS
-	    assert(!SetIn(V, nv0)); // assertion to ensure we're in line with faye
-#endif
-	    SetAdd(outSet, (outbound[nOut++] = nv0));
-	}
+    // Use thread-local byte arrays for fast O(1) membership testing, replacing SET operations.
+    // inOut[v]=1 means v is in the outbound set, inV[v]=1 means v is in the sample set V.
+    static _Thread_local char *inOut, *inV;
+    static _Thread_local unsigned _prev_n;
+    if(!inOut || _prev_n < G->n) {
+	free(inOut); free(inV);
+	inOut = (char*)calloc(G->n, 1);
+	inV = (char*)calloc(G->n, 1);
+	_prev_n = G->n;
     }
-    // Note the order of these assertions is important: we need to call NextNeighbor one extra time being Degree, which
-    // forces it to return G->n, and only then can we check that vn0==G->n
-    assert(i==GraphDegree(G,Varray[0])); // now we SHOULD be at the end...
-    assert((nv0=GraphNextNeighbor(G,Varray[0],&nBuf))==G->n || nv0 == (unsigned)(-1));
+    // Clear the membership flags from the previous call. We only need to clear the nodes
+    // that were actually set, which is much faster than clearing the whole array.
+    // We track which nodes were touched and clear them below after the main loop.
 
-    nBuf=0; for(i=0; i < GraphDegree(G,Varray[1]); i++)
+    int nOut = 0, outbound[G->n]; // vertices one step outside the boundary of V
+    unsigned *neighbors;
+    unsigned deg, nv;
+
+    inV[Varray[0]] = 1;
+    inV[Varray[1]] = 1;
+
+    deg = G->degree[Varray[0]];
+    neighbors = G->neighbor[Varray[0]];
+    for(i=0; i < (int)deg; i++)
     {
-	nv1 = GraphNextNeighbor(G,Varray[1],&nBuf); assert(nv1 != -1);
-	if(nv1 != Varray[0] && !SetIn(outSet, nv1))
-	{
-#if PARANOID_ASSERTS
-	    assert(!SetIn(V, nv1)); // assertion to ensure we're in line with faye
-#endif
-	    SetAdd(outSet, (outbound[nOut++] = nv1));
+	nv = neighbors[i];
+	if(nv != Varray[1]) {
+	    inOut[nv] = 1;
+	    outbound[nOut++] = nv;
 	}
     }
-    assert(i==GraphDegree(G,Varray[1]));
-    assert((nv1=GraphNextNeighbor(G,Varray[1],&nBuf)) == G->n || nv1 == (unsigned)(-1)); // we should be at the end...
+
+    deg = G->degree[Varray[1]];
+    neighbors = G->neighbor[Varray[1]];
+    for(i=0; i < (int)deg; i++)
+    {
+	nv = neighbors[i];
+	if(nv != Varray[0] && !inOut[nv]) {
+	    inOut[nv] = 1;
+	    outbound[nOut++] = nv;
+	}
+    }
 
     double multiplier = 1;
     for(i=2; i<k; i++)
@@ -264,29 +309,33 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	    Apology("NBE found a connected component with fewer than k nodes; this should be detected earlier!");
 	j = nOut * RandomUniform();
 	if(!_rawCounts) multiplier *= nOut;
-	assert(multiplier > 0.0);
-	int v0 = outbound[j], v1;
-	SetDelete(outSet, v0);
+	int v0 = outbound[j];
+	inOut[v0] = 0; // "delete" from outSet
+	inV[v0] = 1;
 	SetAdd(V, v0); Varray[i] = v0;
 	outbound[j] = outbound[--nOut];	// nuke v0 from the list of outbound by moving the last one to its place
-	nBuf=0; for(j=0; j<GraphDegree(G,v0);j++) // another loop over neighbors that may take a long time...
+	deg = G->degree[v0];
+	neighbors = G->neighbor[v0];
+	for(j=0; j<(int)deg;j++) // another loop over neighbors
 	{
-	    v1 = GraphNextNeighbor(G,v0,&nBuf); assert(v1!=-1);
-	    if(!SetIn(outSet, v1) && !SetIn(V, v1))
-		SetAdd(outSet, (outbound[nOut++] = v1));
+	    unsigned v1 = neighbors[j];
+	    if(!inOut[v1] && !inV[v1]) {
+		inOut[v1] = 1;
+		outbound[nOut++] = v1;
+	    }
 	}
-	assert(j==GraphDegree(G,v0) && ((v1=GraphNextNeighbor(G,v0,&nBuf))==G->n || v1 == (unsigned)(-1)));
     }
     assert(i==k);
-#if PARANOID_ASSERTS
-    assert(SetCardinality(V) == k);
-    assert(nOut == SetCardinality(outSet));
-#endif
+
+    // Clean up inV and inOut for next call (only clear the nodes we actually set)
+    for(i=0; i<k; i++) inV[Varray[i]] = 0;
+    for(i=0; i<nOut; i++) inOut[outbound[i]] = 0;
+    // Note: nodes that were in outSet but got moved to V were already cleared above
+
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
-	TinyGraphInducedFromGraph(g, G, Varray);
-	Gint_type Gint = TinyGraph2Int(g, k);
-	unsigned char perm[k];
+	// Compute Gint directly from big graph, bypassing TINY_GRAPH construction
+	Gint_type Gint = _FastGraphletToGint(G, Varray, k);
+	unsigned char perm[MAX_K];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
@@ -305,9 +354,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	}
     accums->graphletConcentration[GintOrdinal] += ocount;
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
-	TinyGraphFree(g);
     }
-    SetFree(outSet);
     return 1.0;
 }
 
@@ -623,7 +670,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	cumulative[vCount] = cumulative[vCount-1] + GraphDegree(G,newNode);
 	Varray[vCount++] = newNode;
 	Vdegree += GraphDegree(G,newNode);
-	if(vCount < k) for(j = 0; j < vCount-1; j++) if(GraphAreConnected(G, Varray[j], newNode)) insideEdges++;
+	if(vCount < k) for(j = 0; j < vCount-1; j++) if(_FastAreConnected(G, Varray[j], newNode)) insideEdges++;
 #if PARANOID_ASSERTS
 	assert(SetCardinality(V) == vCount);
 	assert(Vdegree == cumulative[vCount-1]);
@@ -634,10 +681,8 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
     assert(vCount == k);
 #endif
     if(!_window) {
-	TINY_GRAPH *g = TinyGraphAlloc(k);
-	TinyGraphInducedFromGraph(g, G, Varray);
-	Gint_type Gint = TinyGraph2Int(g, k);
-	unsigned char perm[k];
+	Gint_type Gint = _FastGraphletToGint(G, Varray, k);
+	unsigned char perm[MAX_K];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
@@ -657,7 +702,6 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	accums->graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
-	TinyGraphFree(g);
     }
 
     return 1.0;
@@ -895,9 +939,8 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	}
 	assert(multiplier > 0.0);
     }
-    TinyGraphInducedFromGraph(g, G, Varray);
-    Gint_type Gint = TinyGraph2Int(g, k);
-    unsigned char perm[k];
+    Gint_type Gint = _FastGraphletToGint(G, Varray, k);
+    unsigned char perm[MAX_K];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
 	// SYNTH: this is where the new ordinal graphlet ID is computed
@@ -917,7 +960,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 	int _i,_j;
 	for(_i=0;_i<k;_i++) for(_j=_i+1;_j<k;_j++) {
 	    unsigned u=Varray[_i], v=Varray[_j];
-	    if(GraphAreConnected(G,u,v)) GraphDisconnect(_EDGE_COVER_G,u,v);
+	    if(_FastAreConnected(G,u,v)) GraphDisconnect(_EDGE_COVER_G,u,v);
 	}
     }
     double ocount = 1.0;
