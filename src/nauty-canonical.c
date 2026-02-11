@@ -3,7 +3,7 @@
 #include <string.h>
 #include <assert.h>
 #include "nauty-canonical.h"
-#include "nauty/nauty.h"
+#include "nauty.h"
 
 /*
  * NautyCanonical: compute the canonical form of a TINY_GRAPH using nauty.

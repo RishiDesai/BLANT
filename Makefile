@@ -313,34 +313,42 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 
 .PHONY: test_fast
 
-### nauty library targets (Phase 1: cross-validation only) ###
+### nauty library (built externally in third_party/) ###
 
-NAUTY_DIR = src/nauty
-NAUTY_SRCS = nauty.c nautil.c nausparse.c naugraph.c schreier.c naurng.c
-NAUTY_OBJS = $(addprefix $(OBJDIR)/nauty_, $(NAUTY_SRCS:.c=.o))
-NAUTY_CFLAGS = -O3 -DWORDSIZE=64
+NAUTY_HOME = third_party/nauty2_8_9
+NAUTY_LIB = $(NAUTY_HOME)/nauty.a
+NAUTY_INC = -I $(NAUTY_HOME)
+NAUTY_LINK = $(NAUTY_LIB) -lm -lpthread
 
-$(OBJDIR)/nauty_%.o: $(NAUTY_DIR)/%.c | $(OBJDIR)
+# Build nauty from source tarball if not already built
+$(NAUTY_LIB): | $(NAUTY_HOME)/Makefile
+	cd $(NAUTY_HOME) && $(MAKE) -j nauty.a
+
+$(NAUTY_HOME)/Makefile:
+	@echo "nauty not found. Download nauty2_8_9.tar.gz into third_party/ and run:"
+	@echo "  cd third_party && tar xzf nauty2_8_9.tar.gz && cd nauty2_8_9 && ./configure && make nauty.a geng"
+	@false
+
+# geng binary (for enumerating non-isomorphic graphs)
+geng: $(NAUTY_HOME)/geng
+	ln -sf $(NAUTY_HOME)/geng $@
+
+$(NAUTY_HOME)/geng: | $(NAUTY_HOME)/Makefile
+	cd $(NAUTY_HOME) && $(MAKE) geng
+
+# nauty-canonical wrapper object
+$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | libwayne $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR)
+	$(GCC) -O3 -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
 
-$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h | libwayne $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_COMP)
-
-geng: $(NAUTY_DIR)/geng.c $(NAUTY_OBJS) $(OBJDIR)/nauty_gtools.o
-	$(GCC) $(NAUTY_CFLAGS) -o $@ $< $(NAUTY_OBJS) $(OBJDIR)/nauty_gtools.o -I $(NAUTY_DIR) -lm -lpthread
-
-$(OBJDIR)/nauty_gtools.o: $(NAUTY_DIR)/gtools.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) $(NAUTY_CFLAGS) -c $< -o $@ -I $(NAUTY_DIR)
-
-tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_OBJS) | libwayne $(OBJDIR)
+# Cross-validation test binary
+tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | libwayne $(OBJDIR)
 	@mkdir -p tests
-	$(GCC) $(NAUTY_CFLAGS) -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_OBJS) -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_BOTH)
+	$(GCC) -O3 -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
 
-test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_OBJS) | libwayne $(OBJDIR)
-	$(GCC) $(NAUTY_CFLAGS) -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_OBJS) -I $(NAUTY_DIR) -I $(SRCDIR) $(LIBWAYNE_BOTH)
+# Standalone nauty-canonical test binary
+test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | libwayne $(OBJDIR)
+	$(GCC) -O3 -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
 
 .PHONY: cross-validate
 cross-validate: tests/cross-validate-nauty $(canon_all)
@@ -358,6 +366,7 @@ $(OBJDIR):
 clean:
 	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	@/bin/rm -f geng test-nauty-canonical tests/cross-validate-nauty
+	@# nauty.a stays in third_party/ (use 'make pristine' to fully clean)
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
