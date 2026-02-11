@@ -30,10 +30,21 @@ BASELINES_DIR = os.environ.get("BASELINES_DIR", os.path.join(BLANT_DIR, "baselin
 OUTPUT_DIR = "/tmp/blant_test_outputs"
 LOGS_DIR = os.environ.get("LOGS_DIR", "/tmp/blant_test_logs")
 
-# Baseline binaries (original, unoptimized).  If BASELINES_DIR doesn't
-# exist we fall back to the binaries in the working tree.
-BASELINE_BLANT = os.path.join(BASELINES_DIR, "blant") if os.path.isdir(BASELINES_DIR) else BLANT_BIN
-BASELINE_CANON_MAP = os.path.join(BASELINES_DIR, "fast-canon-map") if os.path.isdir(BASELINES_DIR) else CANON_MAP_BIN
+# Baseline binaries (original, unoptimized).
+# Docker layout:  /baselines/blant_original, /baselines/fast-canon-map_original
+# Local layout:   baselines/blant, baselines/fast-canon-map
+def _find_baseline_binary(name):
+    """Find a baseline binary, checking Docker naming convention first."""
+    for candidate in (
+        os.path.join(BASELINES_DIR, f"{name}_original"),
+        os.path.join(BASELINES_DIR, name),
+    ):
+        if os.path.isfile(candidate):
+            return candidate
+    return os.path.join(BLANT_DIR, name)  # fall back to working tree
+
+BASELINE_BLANT = _find_baseline_binary("blant")
+BASELINE_CANON_MAP = _find_baseline_binary("fast-canon-map")
 
 # ---------------------------------------------------------------------------
 # Speed-test thresholds
@@ -147,10 +158,12 @@ class TestCanonMapParity:
 
     def _get_baseline_canon_map(self, k):
         """Get baseline canon map output.  Uses pre-generated file or runs baseline binary."""
-        cache_file = os.path.join(BASELINES_DIR, f"canon_map{k}_reference.txt")
-        if os.path.exists(cache_file):
-            with open(cache_file) as fh:
-                return fh.read()
+        # Check both Docker layout (baselines/canon_maps/) and local layout (baselines/)
+        for directory in (os.path.join(BASELINES_DIR, "canon_maps"), BASELINES_DIR):
+            cache_file = os.path.join(directory, f"canon_map{k}_reference.txt")
+            if os.path.exists(cache_file):
+                with open(cache_file) as fh:
+                    return fh.read()
         # Fall back to generating from baseline binary
         return self._generate_canon_map(k, binary=BASELINE_CANON_MAP)
 
@@ -195,8 +208,14 @@ class TestBinaryTableParity:
         # We verify the ones in canon_maps/ match baselines.
         for prefix in ("canon_map", "perm_map"):
             actual_path = os.path.join(BLANT_DIR, "canon_maps", f"{prefix}{k}.bin")
-            baseline_path = os.path.join(BASELINES_DIR, f"{prefix}{k}.bin")
-            if not os.path.exists(baseline_path):
+            # Check both Docker layout (baselines/canon_maps/) and local layout (baselines/)
+            baseline_path = None
+            for directory in (os.path.join(BASELINES_DIR, "canon_maps"), BASELINES_DIR):
+                candidate = os.path.join(directory, f"{prefix}{k}.bin")
+                if os.path.exists(candidate):
+                    baseline_path = candidate
+                    break
+            if baseline_path is None:
                 # No baseline available — skip
                 continue
             assert os.path.exists(actual_path), f"Missing {actual_path}"
@@ -259,10 +278,12 @@ class TestSeededParity:
     def _get_baseline(self, method, k, mode, network="networks/syeast.el"):
         """Get baseline output.  Uses cached file or runs baseline binary."""
         tag = f"{method}_{mode}_k{k}_{os.path.basename(network)}"
-        cache_file = os.path.join(BASELINES_DIR, f"seeded_{tag}.txt")
-        if os.path.exists(cache_file):
-            with open(cache_file) as fh:
-                return fh.read()
+        # Check both Docker layout (baselines/seeded/) and local layout (baselines/)
+        for directory in (os.path.join(BASELINES_DIR, "seeded"), BASELINES_DIR):
+            cache_file = os.path.join(directory, f"seeded_{tag}.txt")
+            if os.path.exists(cache_file):
+                with open(cache_file) as fh:
+                    return fh.read()
         return self._run_seeded(method, k, mode, network, binary=BASELINE_BLANT)
 
     # -- Frequency mode parity --
