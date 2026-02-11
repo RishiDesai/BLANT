@@ -155,7 +155,7 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 ### Executables ###
 
 fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
+	$(CC) '-std=c99' -O3 -DNDEBUG -DPARANOID_ASSERTS=0 -march=native -pthread -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
 
 slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
