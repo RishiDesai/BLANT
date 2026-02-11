@@ -237,8 +237,8 @@ $(LIBWAYNE_HOME)/Makefile:
 
 libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
 
-libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a:
-	(cd libwayne && make all)
+libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a:
+	(cd libwayne && make libwayne_all)
 
 
 ### Generated File Recipes
@@ -261,7 +261,7 @@ $(BLANT_CANON_DIR)/alpha_list_EBE%.txt: compute-alphas-EBE $(BLANT_CANON_DIR)/ca
 $(BLANT_CANON_DIR)/alpha_list_MCMC%.txt: compute-alphas-MCMC $(BLANT_CANON_DIR)/canon_list%.txt
 	./compute-alphas-MCMC $* > $(BLANT_CANON_DIR)/alpha_list_MCMC$*.txt;
 
-$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps
+$(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_list%.txt
 	./make-orbit-maps $* > $(BLANT_CANON_DIR)/orbit_map$*.txt
 
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
