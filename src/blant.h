@@ -74,9 +74,15 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
 #endif
 
 extern Gordinal_type _numCanon, _numConnectedCanon;
+#if MAX_K > 8
+extern char *_canonNumEdges;
+extern double _totalStarMotifs;
+extern Gint_type *_canonList;
+#else
 extern char _canonNumEdges[MAX_CANONICALS];
 extern double _totalStarMotifs;
 extern Gint_type _canonList[MAX_CANONICALS];
+#endif
 
 void SetBlantDirs(void);
 double GetCPUseconds(void);
@@ -93,8 +99,14 @@ char** convertToEL(char* file); // from convert.cpp
 #define DEFAULT_CANON_DIR "canon_maps"
 extern const char* _BLANT_DIR, *_CANON_DIR;
 
+#if MAX_K > 8
+extern double **_graphletDegreeVector;
+extern double **_orbitDegreeVector;
+extern double _absoluteCountMultiplier;
+#else
 extern double *_graphletDegreeVector[MAX_CANONICALS];
 extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
+#endif
 
 // If you're squeemish then use this one to access the degrees:
 // THESE NEED TO BE WHOLLY DEPRECATED TO WORK SAFELY WITH MULTITHREADING.
@@ -108,7 +120,11 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk;
 
+#if MAX_K > 8
+extern Gint_type _numOrbits, (*_orbitList)[MAX_K], *_alphaList;
+#else
 extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
+#endif
 
 extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
@@ -131,25 +147,41 @@ enum OutputMode {undef=0, indexGraphlets=1, indexGraphletsRNO=2, indexOrbits=4, 
     graphletDistribution=2048 // used in Windowing
 };
 extern enum OutputMode _outputMode; // note they can be LOGINAL OR'd together; modes can overlap!
+#if MAX_K > 8
+extern int *_outputMapping, *_canonNumStarMotifs;
+extern double *_graphletCount;
+extern int **_graphletDistributionTable;
+extern double *_graphletConcentration;
+extern unsigned long *_batchRawCount, _batchRawTotalSamples;
+#else
 extern int _outputMapping[MAX_CANONICALS], _canonNumStarMotifs[MAX_CANONICALS];
-
 extern double _graphletCount[MAX_CANONICALS];
 extern int **_graphletDistributionTable;
 extern double _graphletConcentration[MAX_CANONICALS];
 extern unsigned long _batchRawCount[MAX_CANONICALS], _batchRawTotalSamples; // batches for confidence intervals
+#endif
 enum PrecisionMode {PrecUndef, mean, worst};
 enum PrecisionWeights {PrecWtNone, PrecWtRaw, PrecWtLog};
 
 enum CanonicalDisplayMode {undefined, ordinal, decimal, binary, orca, jesse, noncanonical};
 extern enum CanonicalDisplayMode _displayMode;
+#if MAX_K > 8
+extern Gordinal_type *_orbitCanonMapping;
+extern char *_orbitCanonNodeMapping;
+#else
 extern Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (ordinal value, including disconnected graphlets)
 extern char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical nodes
+#endif
 
 enum FrequencyDisplayMode {freq_display_mode_undef, freq_display_mode_count, freq_display_mode_concentration, freq_display_mode_estimate_absolute};
 extern enum FrequencyDisplayMode _freqDisplayMode;
 
 extern int _orca_orbit_mapping[58]; // Mapping from orbit indices in orca_ordering to our orbits
+#if MAX_K > 8
+extern int *_connectedOrbits;
+#else
 extern int _connectedOrbits[MAX_ORBITS];
+#endif
 extern int _numConnectedOrbits;
 
 extern int _numConnectedComponents;
