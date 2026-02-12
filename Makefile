@@ -440,11 +440,56 @@ blant-large-k: libwayne $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(
 k9: blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt
 k10: blant-large-k $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/orbit_map10.txt
 
+### Strong Verification Tests for k=9/k=10 ###
+
+# Common globals object for large-k test programs
+$(OBJDIR)/test-globals-large-k.o: tests/test-globals-large-k.c | libwayne $(OBJDIR)
+	@mkdir -p $(dir $@)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
+
+# Link recipe shared by all strong test binaries
+STRONG_TEST_LINK_OBJS = $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_LINK)
+STRONG_TEST_CFLAGS = -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) $(NAUTY_INC) -I $(SRCDIR)
+
+# Test 1: Canonical idempotency
+tests/test-idempotent: tests/test-idempotent.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-idempotent.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+
+# Test 2: Isomorphism invariance
+tests/test-isomorphism-invariant: tests/test-isomorphism-invariant.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-isomorphism-invariant.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+
+# Test 3: Canonical consistency (nauty returns same canonical for all permutations)
+tests/test-canonical-minimum: tests/test-canonical-minimum.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-canonical-minimum.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+
+# Test 4: Subgraph consistency (chain of trust k->k-1)
+tests/test-subgraph-consistency: tests/test-subgraph-consistency.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-subgraph-consistency.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+
+# Test 5: Orbit-degree consistency
+tests/test-orbit-degrees: tests/test-orbit-degrees.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-orbit-degrees.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+
+STRONG_TEST_BINS = tests/test-idempotent tests/test-isomorphism-invariant tests/test-canonical-minimum tests/test-subgraph-consistency tests/test-orbit-degrees
+
+.PHONY: strong-tests test-k9-strong test-k10-strong
+strong-tests: $(STRONG_TEST_BINS)
+
+test-k9-strong: strong-tests blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt
+	@echo "=== Running Strong k=9 Verification Tests ==="
+	bash tests/run_strong_tests.sh 9
+
+test-k10-strong: strong-tests blant-large-k $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/orbit_map10.txt
+	@echo "=== Running Strong k=10 Verification Tests ==="
+	bash tests/run_strong_tests.sh 10
+
 ### Cleaning ###
 
 clean:
 	@/bin/rm -f *.[oa] blant blant-large-k create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	@/bin/rm -f geng test-nauty-canonical tests/cross-validate-nauty generate-canon-list generate-orbit-map
+	@/bin/rm -f $(STRONG_TEST_BINS)
 	@# nauty.a stays in third_party/ (use 'make pristine' to fully clean)
 	@/bin/rm -rf $(OBJDIR)/*
 
