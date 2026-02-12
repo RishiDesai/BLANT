@@ -8,6 +8,7 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
+#include "combin.h"
 
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
@@ -228,7 +229,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
         {
             SetEmpty(Vext);
             // Remove an element w from Vextension
-            w = Vextension->smallestElement;
+            w = bitset_smallest(Vextension);
             SetDelete(Vextension, (int)w);
             // Add exlusive neighbor u of w and u > v
             for(i=0; i<Gi->degree[w]; i++)
