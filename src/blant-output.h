@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_OUTPUT_H
 #define BLANT_OUTPUT_H
@@ -7,8 +7,8 @@
 #include "blant-pthreads.h"
 
 // ProcessGraphlet returns true if the graphlet was processed, and false if it was removed due to being a duplicate
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums);
-Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
+bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums);
+bool NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
 // None of the "Print" routines here actually print anything; they put the string into a buffer you provide; you do the output
 char *PrintGraphletID(char buf[], Gint_type Gint);

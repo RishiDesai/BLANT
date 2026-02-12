@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant-window.h"
 #include "blant-output.h"
@@ -8,6 +8,7 @@
 #include "graph.h"
 #include "multisets.h"
 #include "blant-utils.h"
+#include "combin.h"
 
 int _windowSampleMethod = -1;
 int _windowRep_limit_method = WINDOW_LIMIT_UNDEF;
@@ -25,13 +26,13 @@ char* _odvFile = NULL;
 bool _alphabeticTieBreaking = true;
 
 int _windowSize = 0;
-Boolean _window = false;
+bool _window = false;
 SET *_windowRep_allowed_ambig_set;
 int _windowRep_min_num_edge = -1;
 float *_graphNodeImportance;
-Boolean _supportNodeImportance = false;
+bool _supportNodeImportance = false;
 
-Boolean _windowRep_limit_neglect_trivial = false;
+bool _windowRep_limit_neglect_trivial = false;
 
 int _windowIterationMethod = WINDOW_ITER_DFS;
 
@@ -112,8 +113,8 @@ void updateWindowRepArray(GRAPH *G, unsigned *WArray, unsigned *VArray, int numE
     if (_numWindowRep + 1 == _numWindowRepArrSize)
     {
         _numWindowRepArrSize = MIN(2 * _numWindowRepArrSize, _MAXnumWindowRep);
-        _windowReps = Realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
-        for(i=_numWindowRep; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+        _windowReps = realloc(_windowReps, _numWindowRepArrSize * sizeof(int*));
+        for(i=_numWindowRep; i<_numWindowRepArrSize; i++) _windowReps[i] = calloc(_k+1, sizeof(int));
     }
 
 	if (_windowRep_limit_method == WINDOW_LIMIT_UNDEF || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
@@ -212,7 +213,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
 {
     unsigned u, w, i, j, numEdges=0;
     Gint_type Gint;
-    Boolean inclusive = false;
+    bool inclusive = false;
     SET *Vext = SetAlloc(Gi->n), *uNeighbors = SetAlloc(Gi->n);
     if(*varraySize == _k)
     {
@@ -228,7 +229,7 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
         {
             SetEmpty(Vext);
             // Remove an element w from Vextension
-            w = Vextension->smallestElement;
+            w = bitset_smallest(Vextension);
             SetDelete(Vextension, (int)w);
             // Add exlusive neighbor u of w and u > v
             for(i=0; i<Gi->degree[w]; i++)
@@ -242,13 +243,13 @@ void ExtendSubGraph(GRAPH *G, GRAPH *Gi, unsigned *WArray, unsigned *VArray, SET
                     if(!inclusive && u > v) SetAdd(Vext, u);
                 }
             }
-            unsigned *VArrayCopy = Calloc(_k, sizeof(int));
+            unsigned *VArrayCopy = calloc(_k, sizeof(int));
             for(i=0; i<_k; i++) VArrayCopy[i] = VArray[i];
             int varrayCopySize = *varraySize;
             VArrayCopy[varrayCopySize++] = w;
             SetUnion(Vext, Vext, Vextension);
             ExtendSubGraph(G, Gi, WArray, VArrayCopy, Vext, v, &varrayCopySize, windowAdjList, windowRepInt, D, canonMSET, perm);
-            Free(VArrayCopy);
+            free(VArrayCopy);
         }
     }
     SetFree(Vext);
@@ -337,7 +338,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
         }
 
     // Sampling K-graphlet Step
-    VArray = Calloc(_k, sizeof(int));
+    VArray = calloc(_k, sizeof(int));
     if (_windowSampleMethod == WINDOW_SAMPLE_DEG_MAX)
     {
     	GRAPH *Gi = GraphInduced(G, W);
@@ -379,7 +380,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, char uns
     else {
     	Fatal("Undefined Window Iteration Methods.\nRefer to -P[COMB|DFS].\n");
     }
-    Free(VArray);
+    free(VArray);
     if(_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN || _windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
         updateLeastFrequent(windowRepInt, canonMSET);
     MultisetFree(canonMSET);

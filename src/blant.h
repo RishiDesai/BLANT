@@ -1,17 +1,21 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_H
 #define BLANT_H
 
 #include <stdbool.h>
 #include "blant-fundamentals.h" // defining k related constants, including SELF_LOOPS
-#include "misc.h"
+#include "intSizes.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "blant-pthreads.h"
 #include "sets.h"
 #include "tinygraph.h"
 #include "blant-window.h"
 #include "graph.h"
-#include "Oalloc.h"
 // #include "mem-debug.h" // need this if you use ENABLE_MEMORY_TRACKING() at the top of main().
 
 void RandomSeed(long seed);
@@ -24,7 +28,7 @@ double RandomUniform(void);
 extern int _numThreads, _maxThreads;
 extern unsigned long _numSamples;
 extern double _confidence; // for confidence intervals
-extern Boolean _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
+extern bool _earlyAbort;  // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 
 #define mcmc_d 2 // arbitrary d graphlet size < k for MCMC algorithm. Should always be 2 or k-1
 
@@ -162,13 +166,13 @@ extern int *_startNodes, _numStartNodes;
 extern SET *_startNodeSet;
 
 extern double *_cumulativeProb;
-extern Boolean _child, _weighted;
-extern Boolean _rawCounts;
+extern bool _child, _weighted;
+extern bool _rawCounts;
 extern int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 #define SPARSE true // do not try false at the moment, it's broken
 
-Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
+bool NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k);
 
 // keeps track of if the stop mode is specified with number of samples (-n) or precision (-p)
 enum StopMode {stopOnSamples, stopOnPrecision};

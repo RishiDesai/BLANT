@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <sys/mman.h>
@@ -52,7 +52,7 @@ static unsigned int L_K_Func_Memory(Gint_type Gint) {
 
 static TINY_GRAPH _g, _h; // the current and "moved" TINY_GRAPHs for simulated annealing
 
-foint SA_GenMove(Boolean generate, foint current) {
+foint SA_GenMove(bool generate, foint current) {
     extern double drand48();
     assert(current.v == (void*)(&_g));
     if(generate) {
@@ -66,7 +66,7 @@ foint SA_GenMove(Boolean generate, foint current) {
 	return (foint)(void*)(&_g);
 }
 
-foint SA_Accept(Boolean accept, foint sol) {
+foint SA_Accept(bool accept, foint sol) {
     assert(sol.v == (void*)(&_h));
     if(accept) _g = _h;
     return (foint)(void*)(&_g);
@@ -94,7 +94,7 @@ static Gint_type L_K_Func_SA(Gint_type Gint) {
     SIM_ANNEAL *sa = SimAnnealAlloc(-1, (foint)(void*)(&_g), SA_GenMove, SA_Score, SA_Accept, SQR(_k));
     SimAnnealSetSchedule(sa, _tInitials[_k], _tDecays[_k]);
     int best=Gint, same=0, canonInt;
-    Boolean done=false;
+    bool done=false;
     do {
 	int result = SimAnnealRun(sa);
 	if(result <= 0) Fatal("SimAnnealRun returned %d", result);
@@ -198,7 +198,7 @@ void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
 	inv[(int)perm[j]]=j;
 }
 
-Boolean arrayIn(unsigned *arr, int size, int item) {
+bool arrayIn(unsigned *arr, int size, int item) {
     int i;
     for(i=0; i<size; i++) {
         if (arr[i] == item) {
@@ -275,7 +275,7 @@ int nwhn_asc_rev_comp_func(const void *a, const void *b) {
 }
 
 // Fast inline adjacency check for sparse non-complement graphs: scan the shorter neighbor list.
-static inline Boolean _FastAreConnectedUtil(GRAPH *G, unsigned i, unsigned j)
+static inline bool _FastAreConnectedUtil(GRAPH *G, unsigned i, unsigned j)
 {
     unsigned me, other, n, k;
     const unsigned *neighbors;

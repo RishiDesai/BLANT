@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_UTILS_H
 #define BLANT_UTILS_H
@@ -33,7 +33,7 @@ struct orbitpair_bits {
 int orbitpair_cmp(long int a, long int b);
 long int orbitpair_copy(long int src);
 
-Boolean arrayIn(unsigned *arr, int size, int item);
+bool arrayIn(unsigned *arr, int size, int item);
 void printIntArray(int* arr, int n, char* name);
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint);
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);

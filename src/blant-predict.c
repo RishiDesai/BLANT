@@ -90,9 +90,9 @@ void Predict_Init(GRAPH *G) {
     }
 
     _G = G;
-    _PredictCount = (float**) Calloc(G->n, sizeof(_PredictCount[0]));
+    _PredictCount = (float**) calloc(G->n, sizeof(_PredictCount[0]));
     for(unsigned i=0; i<G->n;i++) 
-	_PredictCount[i] = (float*) Calloc(G->n, sizeof(_PredictCount[i][0]));
+	_PredictCount[i] = (float*) calloc(G->n, sizeof(_PredictCount[i][0]));
 
     fprintf(stderr, "Sanity check: k %d, ordinal %d (integer %d), global orbitPair (%d,%d)\n",
 	_k, _predictOrd, _canonList[_predictOrd], _predictOrbit1, _predictOrbit2);
