@@ -5,7 +5,6 @@
 #include "blant-predict.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
-#include "sorts.h"
 #include "combin.h"
 #include "tinygraph.h"
 
@@ -108,7 +107,7 @@ static GRAPH *_G; // local copy of GRAPH *G
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 // Now THREAD-SAFE: uses _Thread_local storage instead of static shared state
 // Only does anything if sampling method is MCMC, otherwise returns false.
-Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
+bool NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     if (_sampleMethod != SAMPLE_MCMC && _sampleMethod != SAMPLE_MCMC_EC && _sampleMethod != SAMPLE_INDEX) return false;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
@@ -121,7 +120,7 @@ Boolean NodeSetSeenRecently(GRAPH *G, unsigned Varray[], int k) {
     unsigned i;
     if(!seen) {
         seen = BitvecAlloc(MCMC_MAX_HASH);
-        circBuf = (unsigned*)Calloc(MCMC_CIRC_BUF, sizeof(unsigned));
+        circBuf = (unsigned*)calloc(MCMC_CIRC_BUF, sizeof(unsigned));
         bufPos = 0;
     }
     memcpy(Vcopy, Varray, k*sizeof(*Varray));
@@ -237,7 +236,7 @@ char *PrintIndexOrbitsEntry(char obuf[], Gint_type Gint, Gordinal_type GintOrdin
 
 void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators *accums)
 {
-    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) Calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
+    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
     SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
@@ -261,7 +260,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
             TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
             if(TinyGraphDFSConnected(&gg,d)) {
                 int v=Varray[(int)perm[d]]; // v_orbit=_orbitList[GintOrdinal][d];
-                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) Calloc(_numOrbits, sizeof(SET*));
+                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) calloc(_numOrbits, sizeof(SET*));
                 if(!_tCommunityNeighbors[u][u_orbit]) _tCommunityNeighbors[u][u_orbit] = SetAlloc(G->n);
                 SetAdd(_tCommunityNeighbors[u][u_orbit], v);
             }
@@ -279,7 +278,7 @@ void ProcessNodeOrbitNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdin
 
 void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOrdinal, unsigned Varray[], TINY_GRAPH *g, int k, double w, unsigned char* perm, Accumulators *accums)
 {
-    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) Calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
+    if(!accums->communityNeighbors) accums->communityNeighbors=(SET***) calloc(G->n, sizeof(SET**)); // if communityNeighbors is a null pointer allocate it
     SET*** _tCommunityNeighbors=accums->communityNeighbors;
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
@@ -304,7 +303,7 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
             TinyGraphDisconnect(&gg,c,d); TinyGraphDisconnect(&gg,d,c);
             if(TinyGraphDFSConnected(&gg,d)) {
                 int v=Varray[(int)perm[d]];
-                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) Calloc(_numCanon, sizeof(SET*));
+                if(!_tCommunityNeighbors[u]) _tCommunityNeighbors[u] = (SET**) calloc(_numCanon, sizeof(SET*));
                 if(!_tCommunityNeighbors[u][GintOrdinal]) _tCommunityNeighbors[u][GintOrdinal] = SetAlloc(G->n);
                 SetAdd(_tCommunityNeighbors[u][GintOrdinal], v);
             }
@@ -312,11 +311,11 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
     }
 }
 
-Boolean ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums)
+bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAPH *g, double weight, Accumulators *accums)
 {
     if(_G) assert(_G == G); // only allowed to set it once
     else _G=G;
-    Boolean processed = true;
+    bool processed = true;
     TinyGraphInducedFromGraph(g, G, Varray);
     Gint_type Gint = TinyGraph2Int(g,k);
     unsigned char perm[MAX_K];

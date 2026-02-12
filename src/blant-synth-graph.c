@@ -7,7 +7,7 @@
 #include "multisets.h"
 #include "heap.h"
 
-Boolean _GRAPH_GEN = false;
+bool _GRAPH_GEN = false;
 int _GRAPH_GEN_EDGES;
 int _KS_NUMSAMPLES = 1000;
 float confidence;
@@ -70,7 +70,7 @@ double KStestPVal(double KS_stats, float precision)
 void LoadFromFork(int k, int numSamples, GRAPH* G, double onedarray[], double* twodarray[], int mode)
 {
     char line[_numOrbits * BUFSIZ], *pch, *tmp;
-    Boolean finished = false;
+    bool finished = false;
     int i, j, canon, numRead, row, col, row_sum, total_sum;
     double concentrationNum;
     FILE * fpThread;
@@ -269,14 +269,14 @@ int GenSynGraph(int k, int k_small, int numSamples, GRAPH *G, FILE *SynOutFile)
         StampGraphletNBE(G, G_Syn, graphletCDF, k, k_small, theoreticalPDF, theoreticalCDF);
         break;
     case GEN_MCMC:
-        _graphletDistributionTable = Calloc(_numCanon, sizeof(int*));
+        _graphletDistributionTable = calloc(_numCanon, sizeof(int*));
         for(i=0; i<_numCanon; i++) {
-            _graphletDistributionTable[i] = Calloc(_numCanon, sizeof(int));
+            _graphletDistributionTable[i] = calloc(_numCanon, sizeof(int));
             for(j=0; j<_numCanon; j++) _graphletDistributionTable[i][j] = 0;
         }
         for(i=0; i<_numConnectedCanon; i++) {
-            distributionTablePDF[i] = Calloc(_numConnectedCanon, sizeof(double));
-            distributionTableCDF[i] = Calloc(_numConnectedCanon, sizeof(double));
+            distributionTablePDF[i] = calloc(_numConnectedCanon, sizeof(double));
+            distributionTableCDF[i] = calloc(_numConnectedCanon, sizeof(double));
         }
         LoadFromFork(k, numSamples, G, theoreticalPDF, distributionTablePDF, LOAD_DISTRIBUTION);
         convertPDFtoCDF(theoreticalPDF, theoreticalCDF);

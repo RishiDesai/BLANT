@@ -9,13 +9,16 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "tinygraph.h"
 #include "graph.h"
 #include "heap.h"
 #include "queue.h"
 #include "multisets.h"
-#include "sorts.h"
 
 #define VERBOSE 0
 #define PARANOID_ASSERTS 1	// turn on paranoid checking --- slows down execution by a factor of 2-3
@@ -37,7 +40,6 @@ double RandomUniform(void) {
     return Mt19937NextDouble(_mt19937);
 }
 #else
-#include "rand48.h"
 #define RandomUniform drand48
 #define RandomSeed srand48
 #endif
@@ -59,7 +61,7 @@ char _sampleFileEOF;
 #define RESERVOIR_MULTIPLIER 8
 #endif
 
-static Boolean _MCMC_UNIFORM = false; // Should MCMC restart at each edge
+static bool _MCMC_UNIFORM = false; // Should MCMC restart at each edge
 
 #define SAMPLE_FAYE 6
 
@@ -99,7 +101,7 @@ int _windowSampleMethod = -1;
 
 #define WINDOW_COMBO 0 // Turn on for using Combination method to sample k-graphlets in Window. Default is DFS-like way.
 static int _windowSize = 0;
-static Boolean _window = false;
+static bool _window = false;
 static int** _windowReps;
 static int _MAXnumWindowRep = 0;
 static int _numWindowRep = 0;
@@ -266,14 +268,14 @@ static int InitializeConnectedComponents(GRAPH *G)
     assert(!Varray); // we only can be called once.
     assert(_numConnectedComponents == 0);
     SET *visited = SetAlloc(G->n);
-    Varray = Calloc(G->n, sizeof(int));
-    _whichComponent = Calloc(G->n, sizeof(int));
-    _componentSize = Calloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
-    _componentList = Calloc(G->n, sizeof(int*)); // probably bigger...
-    _combinations = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _probOfComponent = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _cumulativeProb = Calloc(G->n, sizeof(double*)); // probably bigger...
-    _componentSet = Calloc(G->n, sizeof(SET*));
+    Varray = calloc(G->n, sizeof(int));
+    _whichComponent = calloc(G->n, sizeof(int));
+    _componentSize = calloc(G->n, sizeof(int)); // probably bigger than it needs to be but...
+    _componentList = calloc(G->n, sizeof(int*)); // probably bigger...
+    _combinations = calloc(G->n, sizeof(double*)); // probably bigger...
+    _probOfComponent = calloc(G->n, sizeof(double*)); // probably bigger...
+    _cumulativeProb = calloc(G->n, sizeof(double*)); // probably bigger...
+    _componentSet = calloc(G->n, sizeof(SET*));
     
     int nextStart = 0;
     _componentList[0] = Varray;
@@ -1029,7 +1031,7 @@ static int _samplesPerEdge = 0;
 */
 
 static SET *SampleGraphletMCMC(SET *V, int *Varray, GRAPH *G, int k, int whichCC) {
-	static Boolean setup = false;
+	static bool setup = false;
 	static int currSamples = 0; // Counts how many samples weve done at the current starting point
 	static int currEdge = 0; // Current edge we are starting at for uniform sampling
 	static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
@@ -1135,7 +1137,7 @@ static SET* SampleWindowMCMC(SET *V, int *Varray, GRAPH *G, int W, int whichCC)
 	//Original SampleGraphletMCMC initial step. 
 	// Not using tinyGraph to compute overcounting since W_size exceeeds the max tinygrpah size
 	assert(W == _windowSize);
-	static Boolean setup = false;
+	static bool setup = false;
 	static int currSamples = 0;
 	static MULTISET *XLS = NULL; 
 	static QUEUE *XLQ = NULL; 
@@ -1726,7 +1728,7 @@ void updateLeastFrequent(int *windowRepInt, MULTISET *canonMSET)
 void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v, int *varraySize, int(*windowAdjList)[_windowSize], int *windowRepInt, int *D, MULTISET *canonMSET)
 {
     int u, w, i, j, Gint, GintCanon, GintCanonInt, pending_D, numEdges=0;
-    Boolean inclusive = false;
+    bool inclusive = false;
     SET *Vext = SetAlloc(Gi->n), *uNeighbors = SetAlloc(Gi->n);
     if(*varraySize == _k)
     {
@@ -1756,7 +1758,7 @@ void ExtendSubGraph(GRAPH *Gi, int *WArray, int *VArray, SET *Vextension, int v,
                     if(!inclusive && u > v) SetAdd(Vext, u);
                 }
             }
-            int* VArrayCopy = Calloc(_k, sizeof(int));
+            int* VArrayCopy = calloc(_k, sizeof(int));
             for(i=0; i<_k; i++) VArrayCopy[i] = VArray[i];
             int varrayCopySize = *varraySize;
             VArrayCopy[varrayCopySize++] = w;
@@ -1790,7 +1792,7 @@ void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D)
         }
         
     // Sampling K-graphlet Step
-    VArray = Calloc(_k, sizeof(int));
+    VArray = calloc(_k, sizeof(int));
     if(WINDOW_COMBO) 
     {
         do
@@ -1994,9 +1996,9 @@ int RunBlantFromGraph(int k, int numSamples, GRAPH *G)
 
 #if PARANOID_ASSERTS // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
     if(_outputMode == outputGDV) for(i=0;i<MAX_CANONICALS;i++)
-	Free(_graphletDegreeVector[i]);
-    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) Free(_orbitDegreeVector[i]);
-	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) Free(_doubleOrbitDegreeVector[i]);
+	free(_graphletDegreeVector[i]);
+    if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++) free(_orbitDegreeVector[i]);
+	if(_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++) free(_doubleOrbitDegreeVector[i]);
     if(_outputMode == predictPairs) {
     }
     TinyGraphFree(g);
@@ -2048,13 +2050,13 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     assert(k == _k);
     assert(G->n >= k); // should really ensure at least one connected component has >=k nodes. TODO
     if(_outputMode == outputGDV) for(c=0;c<MAX_CANONICALS;c++)
-	_graphletDegreeVector[c] = Calloc(G->n, sizeof(**_graphletDegreeVector));
+	_graphletDegreeVector[c] = calloc(G->n, sizeof(**_graphletDegreeVector));
     if(_outputMode == outputODV) for(i=0;i<MAX_ORBITS;i++){
-	_orbitDegreeVector[i] = Calloc(G->n, sizeof(**_orbitDegreeVector));
+	_orbitDegreeVector[i] = calloc(G->n, sizeof(**_orbitDegreeVector));
 	for(j=0;j<G->n;j++) _orbitDegreeVector[i][j]=0;
     }
     if (_outputMode == outputODV && _MCMC_UNIFORM) for(i=0;i<MAX_ORBITS;i++){
-	_doubleOrbitDegreeVector[i] = Calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
+	_doubleOrbitDegreeVector[i] = calloc(G->n, sizeof(**_doubleOrbitDegreeVector));
 	for(j=0;j<G->n;j++) _doubleOrbitDegreeVector[i][j]=0.0;
     }
     if(_outputMode == predictPairs) {
@@ -2093,7 +2095,7 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
     for(i=0;i<_THREADS;i++)
 	fpThreads[i] = ForkBlant(_k, samplesPerThread, G);
 
-    Boolean done = false;
+    bool done = false;
     int lineNum = 0;
     do
     {
@@ -2183,12 +2185,12 @@ int RunBlantInThreads(int k, int numSamples, GRAPH *G)
 
 void BlantAddEdge(int v1, int v2)
 {
-    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
+    if(!_pairs) _pairs = malloc(2*_maxEdges*sizeof(_pairs[0]));
     assert(_numEdges <= _maxEdges);
     if(_numEdges >= _maxEdges)
     {
 	_maxEdges *=2;
-	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(int));
+	_pairs = realloc(_pairs, 2*_maxEdges*sizeof(int));
     }
     _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
     _numNodes = MAX(_numNodes, v2+1);
@@ -2209,7 +2211,7 @@ void BlantAddEdge(int v1, int v2)
 int RunBlantEdgesFinished(int k, int numSamples, int numNodes, char **nodeNames)
 {
     GRAPH *G = GraphFromEdgeList(_numNodes, _numEdges, _pairs, SPARSE, NULL);
-    Free(_pairs);
+    free(_pairs);
     _nodeNames = nodeNames;
     return RunBlantInThreads(k, numSamples, G);
 }
@@ -2222,7 +2224,7 @@ int RunBlantFromEdgeList(int k, int numSamples, int numNodes, int numEdges, int 
 {
     assert(numNodes >= k);
     GRAPH *G = GraphFromEdgeList(numNodes, numEdges, pairs, SPARSE, NULL);
-    Free(pairs);
+    free(pairs);
     return RunBlantInThreads(k, numSamples, G);
 }
 
@@ -2355,10 +2357,10 @@ int main(int argc, char *argv[])
 	    _windowSize = atoi(optarg); 
 	    if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
 	    _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
-	    _windowReps = Calloc(_MAXnumWindowRep, sizeof(int*));
+	    _windowReps = calloc(_MAXnumWindowRep, sizeof(int*));
 	    int i;
 	    for(i=0; i<_MAXnumWindowRep; i++)
-		    _windowReps[i] = Calloc(_k+1, sizeof(int));
+		    _windowReps[i] = calloc(_k+1, sizeof(int));
 	    break;
 	case 'p':
 	    if (_windowSampleMethod != -1) Fatal("Tried to define window sampling method twice");

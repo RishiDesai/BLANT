@@ -38,7 +38,7 @@ extern int _samplesPerEdge;
 extern double _g_overcount;
 
 extern unsigned _MCMC_L; // walk length for MCMC algorithm. k-d+1 with d almost always being 2.
-extern Boolean _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
+extern bool _MCMC_EVERY_EDGE; // Should MCMC restart at each edge
 extern GRAPH *_EDGE_COVER_G;
 
 // Each of these samples a graphlet and return its weight (default 1 unless _weighted)

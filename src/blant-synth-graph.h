@@ -12,7 +12,7 @@
 
 #define GEN_NODE_EXPANSION 0
 #define GEN_MCMC 1
-extern Boolean _GRAPH_GEN;
+extern bool _GRAPH_GEN;
 extern int _GRAPH_GEN_EDGES;
 extern int _KS_NUMSAMPLES;
 extern float confidence;

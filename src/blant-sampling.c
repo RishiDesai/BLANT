@@ -17,7 +17,7 @@
 int _sampleMethod = -1, _sampleSubmethod = -1;
 FILE *_sampleFile; // if _sampleMethod is SAMPLE_FROM_FILE
 char _sampleFileEOF;
-Boolean _MCMC_EVERY_EDGE = false; // Should MCMC restart at each edge
+bool _MCMC_EVERY_EDGE = false; // Should MCMC restart at each edge
 int _samplesPerEdge = 0;
 unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
@@ -185,7 +185,7 @@ static int NumReachableNodes(TINY_GRAPH *g, int startingNode)
 //   If whichCC < 0, then it's really a starting edge, where -1 means edgeList[0], -2 means edgeList[1], etc.
 // Fast inline adjacency check for sparse graphs: scan the shorter neighbor list.
 // Equivalent to GraphAreConnected for non-complement sparse graphs, but avoids function call overhead.
-static inline Boolean _FastAreConnected(GRAPH *G, unsigned i, unsigned j)
+static inline bool _FastAreConnected(GRAPH *G, unsigned i, unsigned j)
 {
     unsigned me, other, n, k;
     const unsigned *neighbors;
@@ -510,7 +510,7 @@ double SampleGraphletFromFile(GRAPH *G, SET *V, unsigned *Varray, int k)
 	assert(Varray[i] >= 0 && Varray[i] < G->n);
 	SetAdd(V, Varray[i]);
     }
-    Boolean found=false;
+    bool found=false;
     for(i=0;i<k;i++) if(SetIn(_startNodeSet, Varray[i])) {found=true; break;}
     if(!found) Fatal("sampling graphlets from file but this line doesn't contain a node from the set of interest:\n%s",line);
     return 1.0;
@@ -867,7 +867,7 @@ double SampleGraphletLuBressanReservoir(GRAPH *G, SET *V, unsigned *Varray, int 
 // foundGraphletCount is the expected count of the found graphlet (multiplier/_alphaList[GintOrdinal]),
 // which needs to be returned (but must be a parameter since there's already a return value on the function)
 double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC, Accumulators *accums) {
-    _Thread_local static Boolean setup = false;
+    _Thread_local static bool setup = false;
     _Thread_local static int currSamples = 0; // Counts how many samples weve done at the current starting point
     _Thread_local static int currEdge = 0; // Current edge we are starting at for uniform sampling
     _Thread_local static MULTISET *XLS = NULL; // A multiset holding L dgraphlets as separate vertex integers
@@ -952,7 +952,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
 #endif
 
     assert(numNodes == k); // Ensure we are returning k nodes
-    Boolean found=false;
+    bool found=false;
     for(j=0;j<k;j++) if(SetIn(_startNodeSet,Varray[j])){found=true;break;}
     assert(found);
 
@@ -1105,7 +1105,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     int i, j;
     SetEmpty(V);
 
-    Boolean found=false;
+    bool found=false;
     for (i = 0; i < k; i++) {
 	SetAdd(V, Varray[i]);
 	if(SetIn(_startNodeSet, Varray[i])) found=true;
@@ -1184,7 +1184,7 @@ double SampleWindowMCMC(GRAPH *G, SET *V, unsigned *Varray, int W, int whichCC)
 	//Original SampleGraphletMCMC initial step.
 	// Not using tinyGraph to compute overcounting since W_size exceeds the max tinygraph size
 	assert(W == _windowSize);
-	static Boolean setup = false;
+	static bool setup = false;
 	static int currSamples = 0;
 	static MULTISET *XLS = NULL;
 	static QUEUE *XLQ = NULL;

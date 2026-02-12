@@ -33,7 +33,7 @@ struct orbitpair_bits {
 int orbitpair_cmp(long int a, long int b);
 long int orbitpair_copy(long int src);
 
-Boolean arrayIn(unsigned *arr, int size, int item);
+bool arrayIn(unsigned *arr, int size, int item);
 void printIntArray(int* arr, int n, char* name);
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint);
 void InvertPerm(unsigned char inverse[_k], unsigned const char perm[_k]);

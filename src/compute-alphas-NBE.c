@@ -3,7 +3,11 @@
 #include "combin.h"
 #include "tinygraph.h"
 #include "blant.h"
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include <stdio.h>
 
 Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];

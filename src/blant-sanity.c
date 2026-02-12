@@ -19,7 +19,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "graph.h"
 
 static int _k;

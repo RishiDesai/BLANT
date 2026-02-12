@@ -3,7 +3,11 @@
 #include "combin.h"
 #include "tinygraph.h"
 #include "blant.h"
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include <stdio.h>
 
 Gint_type _canonList[MAX_CANONICALS], _alphaList[MAX_CANONICALS];
@@ -21,9 +25,9 @@ static COMBIN *_Lcombin;
    If so, increments alpha.
    Conceptually, this represents if this permutations of d nodes is possible to walk during sampling.
 */
-Boolean _permuteDgraphlets(int size, int* array) {
+bool _permuteDgraphlets(int size, int* array) {
     int g1, i;
-    Boolean validWalk = true;
+    bool validWalk = true;
     for (g1 = 0; g1 < _L-1; g1++) { //Unsure if this combination strategy works for d != 2
 	TSET tset1 = 0;
 	TSET tset2 = 0;

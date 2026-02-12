@@ -185,11 +185,11 @@ void freeAdjacencyList(ADJ_LIST *adjList, GRAPH *G) {
     int i;
 
     for (i = 0; i < G->n; ++i) {
-        Free(adjList->lists[i]);
+        free(adjList->lists[i]);
     }
 
-    Free(adjList->sizes);
-    Free(adjList);
+    free(adjList->sizes);
+    free(adjList);
 }
 
 void fillSortedNodes(int *sortedNodes, GRAPH *G) {

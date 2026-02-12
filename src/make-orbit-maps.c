@@ -12,12 +12,12 @@
 
 static int k;
 
-Boolean suitablePerm(int permutation[], int adj[k][k+1]);
+bool suitablePerm(int permutation[], int adj[k][k+1]);
 Gint_type permuteNodes(int permutation[], int adj[k][k+1]); // returns the integer version of the adjacency matrix
 void makeOrbit(int permutation[], long orbit[k]);
-void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]);
+void getCycle(int permutation[], int cycle[], int seed, int current, bool visited[]);
 
-Boolean nextPermutation(int permutation[])
+bool nextPermutation(int permutation[])
 {
     int t, i;
     for(i=k-1;i>0;i--)
@@ -110,7 +110,7 @@ void orbits(Gint_type Decimal, long orbit[k]){
     }
 }
 
-Boolean suitablePerm(int permutation[], int adj[k][k+1]){
+bool suitablePerm(int permutation[], int adj[k][k+1]){
     int node;
     for(node = 0; node < k; node++){
 	if(adj[node][k] != adj[permutation[node]][k]){
@@ -140,7 +140,7 @@ Gint_type permuteNodes(int permutation[], int adj[k][k+1]){
 
 void makeOrbit(int permutation[], long orbit[k]){
     int i, j;
-    Boolean visited[k];
+    bool visited[k];
     for(i=0;i<k;i++)
         visited[i]=0;
     for(i = 0; i < k; i++){
@@ -159,7 +159,7 @@ void makeOrbit(int permutation[], long orbit[k]){
     }
 }
 
-void getCycle(int permutation[], int cycle[], int seed, int current, Boolean visited[]){
+void getCycle(int permutation[], int cycle[], int seed, int current, bool visited[]){
     cycle[++cycle[0]]=current;
     visited[current] = true;
     if(permutation[current] != seed)

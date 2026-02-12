@@ -8,7 +8,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "tinygraph.h"
 #include "graph.h"
 #include "blant.h"
