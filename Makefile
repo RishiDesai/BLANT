@@ -59,6 +59,15 @@ LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 # Name of BLANT source directory
 SRCDIR = src
 
+# Compatibility layer: libwayne sources compiled standalone (for progressive replacement)
+COMPAT_DIR = $(SRCDIR)/libwayne-compat
+COMPAT_SRCS = bitvec.c sets.c graph.c tinygraph.c queue.c multisets.c heap.c combin.c bintree.c stats.c sim_anneal.c
+COMPAT_OBJS = $(addprefix $(OBJDIR)/compat-, $(COMPAT_SRCS:.c=.o))
+COMPAT_ALL = $(COMPAT_OBJS) $(OBJDIR)/blant-compat.o
+# New link flags using compat objects instead of libwayne.a
+COMPAT_LINK = $(COMPAT_ALL) -lm -lpthread $(STACKSIZE) $(SPEED)
+COMPAT_BOTH = $(LIBWAYNE_COMP) $(COMPAT_LINK)
+
 # All the headers (except synthetic ones which are orthogonal to blant itself)
 RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h blant-pthreads.h
 BLANT_HEADERS = $(addprefix $(SRCDIR)/, $(RAW_HEADERS))
@@ -103,7 +112,7 @@ magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).tx
 # ehd takes up too much space and isn't used anywhere yet
 #ehd_txts := $(foreach k,$(K), $(BLANT_CANON_DIR)/EdgeHammingDistance$(k).txt)
 
-base: ./.notpristine show-gcc-ver libwayne $(canon_all) magic_table blant test_all
+base: ./.notpristine show-gcc-ver $(canon_all) magic_table blant test_all
 
 ##################################################################################################################
 ####### this is an attempt to create rules to make data files for just ONE value of k... but not working yet...
@@ -154,61 +163,61 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 
 ### Executables ###
 
-fast-canon-map: libwayne $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -DNDEBUG -DPARANOID_ASSERTS=0 -march=native -pthread -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(LIBWAYNE_BOTH)
+fast-canon-map: $(COMPAT_ALL) $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) '-std=c99' -O3 -DNDEBUG -DPARANOID_ASSERTS=0 -march=native -pthread -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(COMPAT_BOTH)
 
-slow-canon-maps: libwayne $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(LIBWAYNE_BOTH)
+slow-canon-maps: $(COMPAT_ALL) $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(COMPAT_BOTH)
 
-make-orbit-maps: libwayne $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(LIBWAYNE_BOTH)
+make-orbit-maps: $(COMPAT_ALL) $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(COMPAT_BOTH)
 
-blant: libwayne $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+blant: $(COMPAT_ALL) $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(COMPAT_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
 	./canon-upper.sh
 
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | libwayne
+$(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(LIBWAYNE_COMP)
 
-synthetic: libwayne $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
+synthetic: $(COMPAT_ALL) $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(LIBWAYNE_COMP)
-	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(LIBWAYNE_LINK)
+	$(CXX) -o $@ syntheticDS.o $(OBJDIR)/libblant.o synthetic.o $(COMPAT_LINK)
 
-makeEHD: $(OBJDIR)/makeEHD.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(LIBWAYNE_LINK)
+makeEHD: $(OBJDIR)/makeEHD.o $(COMPAT_ALL)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/makeEHD.o $(COMPAT_LINK)
 
-compute-alphas-NBE: libwayne $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+compute-alphas-NBE: $(COMPAT_ALL) $(SRCDIR)/compute-alphas-NBE.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-NBE.c $(OBJDIR)/libblant.o $(COMPAT_BOTH)
 
-compute-alphas-EBE: libwayne $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+compute-alphas-EBE: $(COMPAT_ALL) $(SRCDIR)/compute-alphas-EBE.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-EBE.c $(OBJDIR)/libblant.o $(COMPAT_BOTH)
 
 # Currently unused target, was the old method for calculating MCMC
-compute-alphas-MCMC-slow: libwayne $(SRCDIR)/compute-alphas-MCMC-slow.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-slow.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+compute-alphas-MCMC-slow: $(COMPAT_ALL) $(SRCDIR)/compute-alphas-MCMC-slow.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC-slow.c $(OBJDIR)/libblant.o $(COMPAT_BOTH)
 
-compute-alphas-MCMC: libwayne $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+compute-alphas-MCMC: $(COMPAT_ALL) $(SRCDIR)/compute-alphas-MCMC.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -O3 -o $@ $(SRCDIR)/compute-alphas-MCMC.c $(OBJDIR)/libblant.o $(COMPAT_BOTH)
 
 Draw: Draw/graphette2dot
 
-Draw/graphette2dot: libwayne Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=gnu++11 $(LIBWAYNE_BOTH)
+Draw/graphette2dot: $(COMPAT_ALL) Draw/DrawGraphette.cpp Draw/Graphette.cpp Draw/Graphette.h Draw/graphette2dotutils.cpp Draw/graphette2dotutils.h  | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
+	$(CXX) Draw/DrawGraphette.cpp Draw/graphette2dotutils.cpp Draw/Graphette.cpp $(OBJDIR)/libblant.o -o $@ -std=gnu++11 $(COMPAT_BOTH)
 
-make-subcanon-maps: libwayne $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
-	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(LIBWAYNE_BOTH)
+make-subcanon-maps: $(COMPAT_ALL) $(SRCDIR)/make-subcanon-maps.c | $(OBJDIR)/libblant.o
+	$(CC) -Wall -o $@ $(SRCDIR)/make-subcanon-maps.c $(OBJDIR)/libblant.o $(COMPAT_BOTH)
 
-make-orca-jesse-blant-table: libwayne $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
-	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=gnu++11 $(LIBWAYNE_BOTH)
+make-orca-jesse-blant-table: $(COMPAT_ALL) $(SRCDIR)/blant-fundamentals.h $(SRCDIR)/magictable.cpp | $(OBJDIR)/libblant.o
+	$(CXX) -Wall -o $@ $(SRCDIR)/magictable.cpp $(OBJDIR)/libblant.o -std=gnu++11 $(COMPAT_BOTH)
 
-cluster-similarity-graph: libwayne src/cluster-similarity-graph.c
-	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c
+cluster-similarity-graph: $(COMPAT_ALL) src/cluster-similarity-graph.c
+	$(CC) $(LIBWAYNE_COMP) $(SPEED) -Wall -o $@ $(SRCDIR)/cluster-similarity-graph.c $(COMPAT_LINK)
 
-$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC) | libwayne
-	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_BOTH); fi
+$(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
+	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(LIBWAYNE_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(LIBWAYNE_COMP); fi
 
 ### Object Files/Prereqs ###
 
@@ -216,10 +225,10 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=gnu++11
 
-$(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
-	cd $(LIBWAYNE_HOME)/C++ && $(MAKE)
+$(LIBWAYNE_HOME)/C++/mt19937.o: $(LIBWAYNE_HOME)/C++/mt19937.cpp
+	$(CXX) -std=c++11 -c $(LIBWAYNE_HOME)/C++/mt19937.cpp -o $@
 
-$(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
+$(OBJDIR)/libblant.o: $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
 
@@ -227,8 +236,13 @@ $(OBJDIR)/blant-compat.o: $(SRCDIR)/blant-compat.c $(SRCDIR)/blant-compat.h
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/blant-compat.c -o $@ $(LIBWAYNE_COMP)
 
+# Compile libwayne-compat sources (these replace libwayne.a)
+$(OBJDIR)/compat-%.o: $(COMPAT_DIR)/%.c
+	@mkdir -p $(dir $@)
+	$(CC) -c -o $@ $< $(LIBWAYNE_COMP)
 
-$(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
+
+$(OBJDIR)/makeEHD.o: $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	@mkdir -p $(dir $@)
 	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
 
@@ -271,7 +285,7 @@ $(BLANT_CANON_DIR)/orbit_map%.txt: make-orbit-maps $(BLANT_CANON_DIR)/canon_list
 # future goal- make create-bin-data executable it's own seperate target and move it to the prereqs section, and then list create-bin-data as a prereq for .bin files
 $(BLANT_CANON_DIR)/canon_map%.bin $(BLANT_CANON_DIR)/perm_map%.bin: $(SRCDIR)/create-bin-data.c $(BLANT_CANON_DIR)/canon_list%.txt $(BLANT_CANON_DIR)/canon_map%.txt
 	# compile create-bin-data.c to create-bin-data[k] executables
-	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(LIBWAYNE_BOTH)
+	$(CC) '-std=c99' "-Dkk=$*" "-DkString=\"$*\"" -o create-bin-data$* $(SRCDIR)/libblant.c $(SRCDIR)/create-bin-data.c $(COMPAT_BOTH)
 	[ -f $(BLANT_CANON_DIR)/canon_map$*.bin -a -f $(BLANT_CANON_DIR)/perm_map$*.bin ] || ./create-bin-data$*
 
 # Currently unused target
@@ -292,8 +306,8 @@ $(magic_table_txts): make-orca-jesse-blant-table | $(canon_all) #$(canon_list_tx
 
 ### Testing ###
 
-blant-sanity: libwayne $(SRCDIR)/blant-sanity.c
-	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(LIBWAYNE_BOTH)
+blant-sanity: $(COMPAT_ALL) $(SRCDIR)/blant-sanity.c
+	$(CC) -o $@ $(SRCDIR)/blant-sanity.c $(COMPAT_BOTH)
 
 test_stamp: blant blant-sanity $(canon_all) $(subcanon_txts)
 	@echo Touching test_stamp so $(BLANT_CANON_DIR)/check_maps and $(BLANT_CANON_DIR)/test_index_mode tests only occur if the $(BLANT_CANON_DIR) are changed.

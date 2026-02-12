@@ -3,6 +3,12 @@
 #ifndef BLANT_COMPAT_H
 #define BLANT_COMPAT_H
 
+// Ensure POSIX functions like strdup are declared even in strict C modes
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
+#undef _POSIX_C_SOURCE
+#define _POSIX_C_SOURCE 200809L
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
