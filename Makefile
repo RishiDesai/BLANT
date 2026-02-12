@@ -52,7 +52,7 @@ UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
-LIBWAYNE_COMP=-I $(LIBWAYNE_HOME)/include $(SPEED)
+LIBWAYNE_COMP=-I $(SRCDIR)/shims -I $(SRCDIR) -I $(LIBWAYNE_HOME)/include $(SPEED)
 LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED)
 LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
@@ -222,6 +222,10 @@ $(LIBWAYNE_HOME)/C++/mt19937.o: libwayne # $(LIBWAYNE_HOME)/C++/FutureAsync.o
 $(OBJDIR)/libblant.o: libwayne $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/libblant.c -o $@ $(LIBWAYNE_COMP)
+
+$(OBJDIR)/blant-compat.o: $(SRCDIR)/blant-compat.c $(SRCDIR)/blant-compat.h
+	@mkdir -p $(dir $@)
+	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/blant-compat.c -o $@ $(LIBWAYNE_COMP)
 
 
 $(OBJDIR)/makeEHD.o: libwayne $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
