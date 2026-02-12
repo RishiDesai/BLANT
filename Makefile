@@ -145,7 +145,7 @@ show-gcc-ver:
 	@echo "The fastest way to get started is to skip k=8 graphlets:"
 	@echo "    PAUSE=0 NO8=1 make base"
 	@echo "which will make everything needed to get started sampling up to k=7 graphlets".
-	@echo "To skip cleaning and re-making libwayne, set NO_CLEAN_LIBWAYNE=1"
+	@echo "The libwayne dependency has been replaced with standalone compatibility modules."
 	@echo "You will only see this message once on a 'pristine' repo. Pausing $(PAUSE) seconds..."
 	@echo '****************************************'
 	sleep $(PAUSE)
@@ -247,16 +247,8 @@ $(OBJDIR)/makeEHD.o: $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/makeEHD.c -o $@ $(LIBWAYNE_COMP)
 
 
-$(LIBWAYNE_HOME)/Makefile:
-	echo "Hmm, submodule libwayne doesn't seem to exist; getting it now"
-	git submodule init libwayne
-	git submodule update libwayne
-	(cd libwayne && git checkout master && git pull)
-
-libwayne: libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a
-
-libwayne/libwayne.a libwayne/libwayne-g.a libwayne/libwayne-pg.a libwayne/libwayne-pg-g.a libwayne/libwayne-nd.a:
-	(cd libwayne && make libwayne_all)
+# libwayne submodule rules removed - using standalone compat layer instead
+# The libwayne headers in src/shims/ and sources in src/libwayne-compat/ replace libwayne.a
 
 
 ### Generated File Recipes
@@ -342,9 +334,6 @@ realclean:
 	false
 
 pristine: clean clean_$(BLANT_CANON_DIR)
-ifndef NO_CLEAN_LIBWAYNE
-	@cd $(LIBWAYNE_HOME); $(MAKE) clean
-endif
 	@/bin/rm -f $(BLANT_CANON_DIR)/* .notpristine .firsttime # .firsttime is the old name but remove it anyway
 	@echo "Finding all python crap and removing it... this may take awhile..." >/dev/null
 	@./scripts/delete-python-shit.sh $(UNAME)

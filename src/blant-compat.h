@@ -3,10 +3,17 @@
 #ifndef BLANT_COMPAT_H
 #define BLANT_COMPAT_H
 
-// Ensure POSIX functions like strdup are declared even in strict C modes
+// Ensure POSIX/XSI functions (strdup, drand48, etc.) are declared even in strict C modes
 #if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
 #undef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
+#endif
+#if !defined(_XOPEN_SOURCE) || _XOPEN_SOURCE < 500
+#undef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 500
+#endif
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE 1
 #endif
 
 #ifdef __cplusplus
