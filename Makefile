@@ -45,16 +45,16 @@ endif
 #GCC_VER=$(shell echo $(UNAME) $(HOME) | awk '/Darwin/&&/Users.wayne/{V="-6"}END{if(V)print V;else{printf "using default gcc: " > "/dev/null"; exit 1}}')
 GCC=gcc$(GCC_VER)
 
-# Some systems, eg CYGWIN 32-bit and MacOS("Darwin") need an 80MB stack.
-export LIBWAYNE_HOME=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))/libwayne
+# LIBWAYNE_HOME removed - libwayne submodule no longer needed
 UNAME=$(shell uname -a | awk '{if(/CYGWIN/){V="CYGWIN"}else if(/Darwin/){if(/arm64/)V="arm64";else V="Darwin"}else if(/Linux/){V="Linux"}}END{if(V){print V;exit}else{print "unknown OS" > "/dev/stderr"; exit 1}}')
 
 STACKSIZE=$(shell ($(GCC) -v 2>/dev/null; uname -a) | awk '/CYGWIN/{print "-Wl,--stack,83886080"}/gcc-/{actualGCC=1}/Darwin/{print "-Wl,-stack_size -Wl,0x5000000"}')
 CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -Wno-unused-but-set-variable -Wno-unused-variable -Wall -Wpointer-arith -Wcast-qual -Wcast-align -Wwrite-strings -Wstrict-prototypes -Wshadow $(PG)
 CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
-LIBWAYNE_COMP=-I $(SRCDIR)/shims -I $(SRCDIR) -I $(LIBWAYNE_HOME)/include $(SPEED)
-LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED)
-LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
+LIBWAYNE_COMP=-I $(SRCDIR)/shims -I $(SRCDIR) $(SPEED)
+# LIBWAYNE_LINK and LIBWAYNE_BOTH are no longer used (libwayne.a replaced by compat objects)
+# LIBWAYNE_LINK=-L $(LIBWAYNE_HOME) -lwayne$(LIB_OPT) -lm -lpthread $(STACKSIZE) $(SPEED)
+# LIBWAYNE_BOTH=$(LIBWAYNE_COMP) $(LIBWAYNE_LINK)
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -172,8 +172,8 @@ slow-canon-maps: $(COMPAT_ALL) $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $
 make-orbit-maps: $(COMPAT_ALL) $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(COMPAT_BOTH)
 
-blant: $(COMPAT_ALL) $(OBJS) $(OBJDIR)/libblant.o | $(LIBWAYNE_HOME)/C++/mt19937.o # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(COMPAT_LINK) # $(OBJDIR)/convert.o $(LIBWAYNE_HOME)/C++/FutureAsync.o
+blant: $(COMPAT_ALL) $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(COMPAT_LINK)
 	./canon-upper.sh
 
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
@@ -225,8 +225,9 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -c $(SRCDIR)/convert.cpp -o $@ -std=gnu++11
 
-$(LIBWAYNE_HOME)/C++/mt19937.o: $(LIBWAYNE_HOME)/C++/mt19937.cpp
-	$(CXX) -std=c++11 -c $(LIBWAYNE_HOME)/C++/mt19937.cpp -o $@
+$(OBJDIR)/mt19937.o: $(COMPAT_DIR)/mt19937.cpp $(COMPAT_DIR)/MTGenerator.hpp
+	@mkdir -p $(dir $@)
+	$(CXX) -std=c++11 -I $(COMPAT_DIR) -I $(SRCDIR)/shims -c $(COMPAT_DIR)/mt19937.cpp -o $@
 
 $(OBJDIR)/libblant.o: $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
