@@ -105,6 +105,32 @@ static inline int TinyGraphNumEdges(TINY_GRAPH *G) {
     return sum / 2;
 }
 
+/* Build an induced tinygraph from another tinygraph and a node set mask.
+ * The node ordering is the order produced by TSetToArray().
+ */
+static inline TINY_GRAPH *TinyGraphInduced(TINY_GRAPH *out, TINY_GRAPH *in, TSET nodeSet) {
+    unsigned nodes[MAX_TSET];
+    int n = (int)TSetToArray(nodes, nodeSet);
+    if (!out) {
+        out = in->selfLoops ? TinyGraphSelfAlloc((unsigned)n) : TinyGraphAlloc((unsigned)n);
+    } else if (out->n != n) {
+        TinyGraphFree(out);
+        out = in->selfLoops ? TinyGraphSelfAlloc((unsigned)n) : TinyGraphAlloc((unsigned)n);
+    } else {
+        TinyGraphEdgesAllDelete(out);
+        out->selfLoops = in->selfLoops;
+    }
+
+    for (int i = 0; i < n; i++) {
+        for (int j = in->selfLoops ? i : i + 1; j < n; j++) {
+            if (TinyGraphAreConnected(in, (int)nodes[i], (int)nodes[j])) {
+                TinyGraphConnect(out, i, j);
+            }
+        }
+    }
+    return out;
+}
+
 /* BFS on small graph. Returns number of reachable nodes.
  * nodeArray and distArray should be at least G->n in size.
  */

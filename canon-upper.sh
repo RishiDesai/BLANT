@@ -1,7 +1,7 @@
 #!/bin/bash
 die(){ echo "ERROR:" "$@" >&2; exit 1; }
 
-cd canon_maps || exit 1
+cd canon_maps 2>/dev/null || exit 0
 for k in 3 4 5 6 7 8 9 10; do
     for i in nbe ebe mcmc; do
 	U=`echo $i | tr a-z A-Z`;

@@ -2,6 +2,8 @@
 #ifndef CORES
 CORES := 2
 #endif
+
+.DEFAULT_GOAL := blant
 ifndef PAUSE   
 	PAUSE := 1
 endif
@@ -88,7 +90,11 @@ canon_bin := $(BLANT_CANON_DIR)/canon_map $(BLANT_CANON_DIR)/perm_map
 
 canon_all := $(foreach k, $(K), $(addsuffix $(k).txt, $(canon_txt)) $(addsuffix $(k).bin, $(canon_bin)))
 subcanon_txts := $(if $(EIGHT),$(BLANT_CANON_DIR)/subcanon_map8-7.txt) $(if $(SEVEN),$(BLANT_CANON_DIR)/subcanon_map7-6.txt) $(BLANT_CANON_DIR)/subcanon_map6-5.txt $(BLANT_CANON_DIR)/subcanon_map5-4.txt $(BLANT_CANON_DIR)/subcanon_map4-3.txt
+ifneq ("$(wildcard orca_jesse_blant_table)","")
 magic_table_txts := $(foreach k,$(K), orca_jesse_blant_table/UpperToLower$(k).txt)
+else
+magic_table_txts :=
+endif
 
 base: ./.notpristine show-gcc-ver $(canon_all) magic_table blant test_all
 
