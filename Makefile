@@ -124,8 +124,8 @@ $(BLANT_CANON_DIR): base $(canon_all) sub$(BLANT_CANON_DIR)
 
 ### Executables ###
 
-# Build mt19937.o from C++ source
-$(OBJDIR)/mt19937.o: libwayne/C++/mt19937.cpp
+# Build mt19937 stub (USE_MarsenneTwister is off, but blant needs C++ link)
+$(OBJDIR)/mt19937.o: $(SRCDIR)/mt19937_stub.cpp
 	@mkdir -p $(dir $@)
 	$(CXX) -std=c++11 -c $< -o $@
 
