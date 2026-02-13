@@ -288,18 +288,18 @@ $(NAUTY_HOME)/geng: | $(NAUTY_HOME)/nauty.h
 	cd $(NAUTY_HOME) && $(MAKE) geng
 
 # nauty-canonical wrapper object
-$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | libwayne $(OBJDIR)
+$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
+	$(GCC) -O3 -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
 
 # Cross-validation test binary
-tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | libwayne $(OBJDIR)
+tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | $(OBJDIR)
 	@mkdir -p tests
-	$(GCC) -O3 -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
+	$(GCC) -O3 -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
 
 # Standalone nauty-canonical test binary
-test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | libwayne $(OBJDIR)
-	$(GCC) -O3 -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
+test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | $(OBJDIR)
+	$(GCC) -O3 -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
 
 .PHONY: cross-validate
 cross-validate: tests/cross-validate-nauty $(canon_all)
@@ -316,27 +316,17 @@ $(OBJDIR):
 
 LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10
 
-# For large-k tools, we need to recompile tinygraph.c with TINY_SET_SIZE=16
-# because the pre-compiled libwayne has MAX_TSET=8.
-LIBWAYNE_RECOMPILE_SRCS = $(LIBWAYNE_HOME)/src/tinygraph.c $(LIBWAYNE_HOME)/src/sets.c
-
-$(OBJDIR)/tinygraph-large-k.o: $(LIBWAYNE_HOME)/src/tinygraph.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(LIBWAYNE_COMP)
-
-$(OBJDIR)/sets-large-k.o: $(LIBWAYNE_HOME)/src/sets.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(LIBWAYNE_COMP)
-
-LARGE_K_WAYNE_OBJS = $(OBJDIR)/tinygraph-large-k.o $(OBJDIR)/sets-large-k.o
+# libwayne-backed tinygraph/sets sources were removed from master.
+# Keep this empty so large-k targets rely on the in-tree src/ implementation.
+LARGE_K_WAYNE_OBJS =
 
 # Generator: canon_list from geng output
-generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
+generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
 
 # Generator: orbit_map from canon_list
-generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_BOTH) $(NAUTY_LINK)
+generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
 
 # Generate canon_list9.txt (and signature file)
 $(BLANT_CANON_DIR)/canon_list9.txt: generate-canon-list geng | $(BLANT_CANON_DIR)
@@ -364,27 +354,27 @@ $(BLANT_CANON_DIR):
 # For k>8 it uses nauty for on-the-fly canonical labeling.
 LARGE_K_SRCDIR_FILES = $(addprefix $(SRCDIR)/, blant.c blant-window.c blant-output.c blant-utils.c blant-sampling.c blant-synth-graph.c importance.c odv.c blant-pthreads.c)
 
-$(OBJDIR)/libblant-large-k.o: $(SRCDIR)/libblant.c | libwayne $(OBJDIR)
+$(OBJDIR)/libblant-large-k.o: $(SRCDIR)/libblant.c | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(LIBWAYNE_COMP)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(BLANT_COMP)
 
-$(OBJDIR)/nauty-canonical-large-k.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | libwayne $(OBJDIR)
+$(OBJDIR)/nauty-canonical-large-k.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
 
-$(OBJDIR)/blant-predict-large-k.o: $(SRCDIR)/blant-predict.c | libwayne $(OBJDIR)
+$(OBJDIR)/blant-predict-large-k.o: $(SRCDIR)/blant-predict.c | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(LIBWAYNE_COMP)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(BLANT_COMP)
 
 # Build all large-k .o files
 LARGE_K_OBJS_FROM_SRC = $(addprefix $(OBJDIR)/large-k-, blant.o blant-window.o blant-output.o blant-utils.o blant-sampling.o blant-synth-graph.o importance.o odv.o blant-pthreads.o)
 
-$(OBJDIR)/large-k-%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | libwayne $(OBJDIR)
+$(OBJDIR)/large-k-%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
 
-blant-large-k: libwayne $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(NAUTY_LIB) | $(LIBWAYNE_HOME)/C++/mt19937.o
-	$(CXX) $(LARGE_K_CFLAGS) -o $@ $(OBJDIR)/libblant-large-k.o $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(LIBWAYNE_HOME)/C++/mt19937.o $(LIBWAYNE_LINK) $(NAUTY_LINK)
+blant-large-k: $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(NAUTY_LIB) $(OBJDIR)/mt19937.o
+	$(CXX) $(LARGE_K_CFLAGS) -o $@ $(OBJDIR)/libblant-large-k.o $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(OBJDIR)/mt19937.o $(BLANT_LINK) $(NAUTY_LINK)
 
 .PHONY: k9 k10
 k9: blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt
@@ -393,33 +383,33 @@ k10: blant-large-k $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/orbit_
 ### Strong Verification Tests for k=9/k=10 ###
 
 # Common globals object for large-k test programs
-$(OBJDIR)/test-globals-large-k.o: tests/test-globals-large-k.c | libwayne $(OBJDIR)
+$(OBJDIR)/test-globals-large-k.o: tests/test-globals-large-k.c | $(OBJDIR)
 	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(LIBWAYNE_COMP)
+	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
 
 # Link recipe shared by all strong test binaries
 STRONG_TEST_LINK_OBJS = $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_LINK)
 STRONG_TEST_CFLAGS = -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) $(NAUTY_INC) -I $(SRCDIR)
 
 # Test 1: Canonical idempotency
-tests/test-idempotent: tests/test-idempotent.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-idempotent.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+tests/test-idempotent: tests/test-idempotent.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-idempotent.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
 
 # Test 2: Isomorphism invariance
-tests/test-isomorphism-invariant: tests/test-isomorphism-invariant.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-isomorphism-invariant.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+tests/test-isomorphism-invariant: tests/test-isomorphism-invariant.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-isomorphism-invariant.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
 
 # Test 3: Canonical consistency (nauty returns same canonical for all permutations)
-tests/test-canonical-minimum: tests/test-canonical-minimum.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-canonical-minimum.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+tests/test-canonical-minimum: tests/test-canonical-minimum.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-canonical-minimum.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
 
 # Test 4: Subgraph consistency (chain of trust k->k-1)
-tests/test-subgraph-consistency: tests/test-subgraph-consistency.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-subgraph-consistency.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+tests/test-subgraph-consistency: tests/test-subgraph-consistency.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-subgraph-consistency.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
 
 # Test 5: Orbit-degree consistency
-tests/test-orbit-degrees: tests/test-orbit-degrees.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS) | libwayne
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-orbit-degrees.c $(STRONG_TEST_LINK_OBJS) $(LIBWAYNE_BOTH)
+tests/test-orbit-degrees: tests/test-orbit-degrees.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
+	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-orbit-degrees.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
 
 STRONG_TEST_BINS = tests/test-idempotent tests/test-isomorphism-invariant tests/test-canonical-minimum tests/test-subgraph-consistency tests/test-orbit-degrees
 

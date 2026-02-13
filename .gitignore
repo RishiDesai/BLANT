@@ -50,3 +50,14 @@ make-orca-jesse-blant-table
 make-subcanon-maps
 *.dot
 test_stamp
+
+# generated large-k helpers and test binaries
+geng
+generate-canon-list
+generate-orbit-map
+tests/cross-validate-nauty
+tests/test-idempotent
+tests/test-isomorphism-invariant
+tests/test-canonical-minimum
+tests/test-subgraph-consistency
+tests/test-orbit-degrees
