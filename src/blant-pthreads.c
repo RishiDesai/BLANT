@@ -1,11 +1,14 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "blant.h"
 #include "blant-output.h"
 #include "blant-sampling.h"
 #include "blant-pthreads.h"
-#include "rand48.h"
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include <pthread.h>
 #include <errno.h>
 #include "atomic_utils.h"
@@ -191,7 +194,7 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
             for(int i=0; i<G->n; i++) {
                 if(threadData[t].accums->communityNeighbors[i]) {
                 if(!_communityNeighbors[i]) {
-                    _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+                    _communityNeighbors[i] = (SET**) calloc(numCommunities, sizeof(SET*));
                 }
                 for(int j=0; j<numCommunities; j++) {
                     if(threadData[t].accums->communityNeighbors[i][j]) {

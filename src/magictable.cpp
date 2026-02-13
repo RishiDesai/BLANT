@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <stdio.h>
 #include <string>
@@ -11,19 +11,15 @@
 #include <unordered_set>
 #include <stdint.h>
 #include "blant-fundamentals.h"
+#include "tinygraph.h"
 
 // We assume LOWER_TRIANGLE is defined in blant-fundamentals.h; otherwise, Int2TinyGraph won't build a correct graph.
 // .... except the ORCA numbering assumes we're using UPPER!  (Thus the tables umap3, umap4, umap5). We need lmaps...
 
 //Functions from libwayne and libblant.c
 extern "C" {
-    struct TINY_GRAPH;
     void mapCanonMap(char* BUF, short int *K, int k);
     void Int2TinyGraph(TINY_GRAPH* G, int Gint);
-    TINY_GRAPH *TinyGraphAlloc(unsigned int n);
-    int TinyGraphBFS(TINY_GRAPH *G, int seed, int distance, int *nodeArray, int *distArray);
-    typedef unsigned char Boolean;
-    Boolean TinyGraphDFSConnected(TINY_GRAPH *G, int seed);
 }
 
 using std::sort;
@@ -98,7 +94,7 @@ int canonListPopulate(char *BUF, int *canon_list, int k, char c) {
     infile >> numCanon;
     for (int i = 0; i < numCanon; i++) {
         infile >> canon_list[i];
-#if 0 // leave this out for now since magictable is using old canon_list files without the connected Boolean or numEdges.
+#if 0 // leave this out for now since magictable is using old canon_list files without the connected bool or numEdges.
 	int connected, numEdges;
         infile >> connected;
         infile >> numEdges;

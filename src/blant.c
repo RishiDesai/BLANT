@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -14,14 +14,17 @@
 #include <signal.h>
 #include <pthread.h>
 #include <stdbool.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "tinygraph.h"
 #include "graph.h"
 #include "heap.h"
 #include "blant.h"
 #include "queue.h"
 #include "multisets.h"
-#include "sorts.h"
 #include "combin.h"
 #include "blant-window.h"
 #include "blant-output.h"
@@ -29,8 +32,7 @@
 #include "blant-sampling.h"
 #include "blant-synth-graph.h"
 #include "blant-pthreads.h"
-#include "rand48.h"
-Boolean _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
+bool _earlyAbort; // Can be set true by anybody anywhere, and they're responsible for producing a warning as to why
 #include "blant-predict.h"
 #include "importance.h"
 #include "odv.h"
@@ -50,7 +52,6 @@ double RandomUniform(void) {
     return Mt19937NextDouble(mt19937Seed);
 }
 #else
-#include "rand48.h"
 _Thread_local unsigned short erand48Seed[3];
 void RandomSeed(long seed) {
     // split the number seed into 3 portions of 16 bits
@@ -69,7 +70,7 @@ static unsigned *_pairs;
 static float *_weights;
 char **_nodeNames, _supportNodeNames = true;
 static FILE *interestFile;
-Boolean _child; // are we a child process?
+bool _child; // are we a child process?
 int _quiet; // suppress notes and/or warnings, higher value = more quiet
 
 char * _sampleFileName;
@@ -100,9 +101,9 @@ Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation 
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
-Boolean _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
-Boolean _weighted; // input network is weighted
-Boolean _rawCounts;
+bool _useComplement; // to use the complement graph (DEPRECATED, FIND ANOTHER LETTER)
+bool _weighted; // input network is weighted
+bool _rawCounts;
 Gordinal_type _numConnectedCanon;
 int _numConnectedComponents;
 int *_componentSize;
@@ -209,7 +210,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 {
     static unsigned v, *Varray, j, i;
     assert(!Varray); // we only can be called once.
-    Varray = Calloc(G->n, sizeof(int));
+    Varray = calloc(G->n, sizeof(int));
     assert(_numConnectedComponents == 0);
     SET *visited = SetAlloc(G->n);
 
@@ -280,7 +281,7 @@ static int InitializeConnectedComponents(GRAPH *G)
 	//printf("Component %d has %d nodes and probability %lf, cumulative prob %lf\n", i, _componentSize[i], _probOfComponent[i], _cumulativeProb[i]);
     }
     SetFree(visited);
-    Free(Varray); // but do NOT set it to NULL, as a flag not to run this again
+    free(Varray); // but do NOT set it to NULL, as a flag not to run this again
     return _numConnectedComponents;
 }
 
@@ -721,7 +722,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 	    for(i=0;i<k;i++) for(j=i+1;j<k;j++) {
 		int u=Varray[i], v=Varray[j];
 		if(GraphAreConnected(G,u,v)) { // find (u,v) in the edgeList and remove it from needEdge
-		    Boolean found=false;
+		    bool found=false;
 		    for(f=0;f<G->numEdges;f++) {
 			if((G->edgeList[2*f]==u && G->edgeList[2*f+1]==v) || (G->edgeList[2*f]==v && G->edgeList[2*f+1]==u)) {
 			    found=true;
@@ -743,7 +744,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     ) {
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (_numThreads > 1) {
-            Boolean mcmcThreadSafe = false;
+            bool mcmcThreadSafe = false;
             
             // MCMC can be parallelized for specific output modes that don't use NodeSetSeenRecently
             if (_sampleMethod == SAMPLE_MCMC) {
@@ -785,7 +786,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
         unsigned long samplesCounter = 0;
         int batchCounter = 0;
-        Boolean confMet = false;
+        bool confMet = false;
 
 		// Accumulators for single threaded mode
 		Accumulators *singleThreadAccums = NULL;
@@ -956,7 +957,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 for(int i=0; i<G->n; i++) {
                     if(singleThreadAccums->communityNeighbors[i]) {
                         if(!_communityNeighbors[i]) {
-                            _communityNeighbors[i] = (SET**) Calloc(numCommunities, sizeof(SET*));
+                            _communityNeighbors[i] = (SET**) calloc(numCommunities, sizeof(SET*));
                         }
                         for(int j=0; j<numCommunities; j++) {
                             if(singleThreadAccums->communityNeighbors[i][j]) {
@@ -992,7 +993,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
 	STAT *sTotal[MAX_CANONICALS];
 	for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
-	Boolean confMet = false;
+	bool confMet = false;
 	static int batch;
         for(i=0; (i<numSamples || (_sampleFile && !_sampleFileEOF) || (_desiredPrec && !confMet)) && !_earlyAbort; i++)
         {
@@ -1111,8 +1112,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
     // Sampling done. Now generate output for output modes that require it.
 
     if(_window) {
-        for(i=0; i<_numWindowRepArrSize; i++) Free(_windowReps[i]);
-        Free(_windowReps);
+        for(i=0; i<_numWindowRepArrSize; i++) free(_windowReps[i]);
+        free(_windowReps);
         if(_windowRep_limit_method) HeapFree(_windowRep_limit_heap);
     }
 	if ((_sampleMethod==SAMPLE_MCMC || _sampleMethod==SAMPLE_NODE_EXPANSION || _sampleMethod==SAMPLE_EDGE_EXPANSION) && !_window)
@@ -1246,10 +1247,10 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 
 #if !O_ALLOC && PARANOID_ASSERTS
     // no point in freeing this stuff since we're about to exit; it can take significant time for large graphs.
-    if(_outputMode & outputGDV) for(i=0;i<_numCanon;i++) Free(_graphletDegreeVector[i]);
+    if(_outputMode & outputGDV) for(i=0;i<_numCanon;i++) free(_graphletDegreeVector[i]);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-	for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
-    if(_outputMode & outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) Free(_orbitDegreeVector[i]);
+	for(i=0;i<_numOrbits;i++) free(_orbitDegreeVector[i]);
+    if(_outputMode & outputODV && _MCMC_EVERY_EDGE) for(i=0;i<_numOrbits;i++) free(_orbitDegreeVector[i]);
 #endif
     if (_sampleMethod == SAMPLE_ACCEPT_REJECT && numSamples)
     	fprintf(stderr,"Average number of tries per sample is %.15g\n", _acceptRejectTotalTries/(double)numSamples);
@@ -1470,15 +1471,15 @@ int RunBlantInForks(int k, unsigned long numSamples, GRAPH *G)
 
 void BlantAddEdge(int v1, int v2, double weight)
 {
-    if(!_pairs) _pairs = Malloc(2*_maxEdges*sizeof(_pairs[0]));
-    if(_weighted) {assert(weight); if(!_weights) _weights = Malloc(_maxEdges*sizeof(_weights[0]));}
+    if(!_pairs) _pairs = malloc(2*_maxEdges*sizeof(_pairs[0]));
+    if(_weighted) {assert(weight); if(!_weights) _weights = malloc(_maxEdges*sizeof(_weights[0]));}
     else assert(weight==0.0);
     assert(_numEdges <= _maxEdges);
     if(_numEdges >= _maxEdges)
     {
 	_maxEdges *=2;
-	_pairs = Realloc(_pairs, 2*_maxEdges*sizeof(_pairs[0]));
-	if(_weighted) _weights=Realloc(_weights, _maxEdges*sizeof(_weights[0]));
+	_pairs = realloc(_pairs, 2*_maxEdges*sizeof(_pairs[0]));
+	if(_weighted) _weights=realloc(_weights, _maxEdges*sizeof(_weights[0]));
     }
     _numNodes = MAX(_numNodes, v1+1); // add one since, for example, if we see a node numbered 100, numNodes is 101.
     _numNodes = MAX(_numNodes, v2+1);
@@ -1941,9 +1942,9 @@ int main(int argc, char *argv[])
         if(_windowSize < _k) Fatal("windowSize must be at least size k\n");
         _MAXnumWindowRep = CombinChooseDouble(_windowSize, _k);
         _numWindowRepArrSize = _MAXnumWindowRep > 0 ? MIN(_numWindowRepArrSize, _MAXnumWindowRep) : _numWindowRepArrSize;
-	// _windowReps needs true Calloc/Free since they may be realloc'd on-the-fly.
-        _windowReps = Calloc(_numWindowRepArrSize, sizeof(int*));
-        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = Calloc(_k+1, sizeof(int));
+	// _windowReps needs true calloc/free since they may be realloc'd on-the-fly.
+        _windowReps = calloc(_numWindowRepArrSize, sizeof(int*));
+        for(i=0; i<_numWindowRepArrSize; i++) _windowReps[i] = calloc(_k+1, sizeof(int));
         if (windowRep_edge_density < 0) windowRep_edge_density = 0;
 		if (windowRep_edge_density > 1) windowRep_edge_density = 1;
 		_windowRep_min_num_edge = (int) CombinChooseDouble(_k, 2) * windowRep_edge_density;
@@ -2031,7 +2032,7 @@ int main(int argc, char *argv[])
     //Derik: end here
 
     // Always allocate this set; if there are no "nodes of interest" then every node is a possible start done
-    _startNodes = Calloc(G->n, sizeof(unsigned));
+    _startNodes = calloc(G->n, sizeof(unsigned));
     _startNodeSet = SetAlloc(G->n);
     if(interestFile) {
 	if(_sampleMethod != SAMPLE_NODE_EXPANSION) {
@@ -2075,7 +2076,7 @@ int main(int argc, char *argv[])
 
     if(_outputMode & communityDetection) {
 	if(_communityMode == 'o' || _communityMode=='g') // allocate sets for [node][orbit], but 2nd dimension only when needed
-	    _communityNeighbors = (SET***) Calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
+	    _communityNeighbors = (SET***) calloc(G->n, sizeof(SET**)); // elements are only allocated when needed
 	else
 	    Fatal("unknown _communityMode %c",_communityMode);
     }

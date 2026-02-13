@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_WINDOW_H
 #define BLANT_WINDOW_H
@@ -40,13 +40,13 @@ extern char* _odvFile;
 extern bool _alphabeticTieBreaking;
 
 extern int _windowSize;
-extern Boolean _window;
+extern bool _window;
 extern SET *_windowRep_allowed_ambig_set;
 extern int _windowRep_min_num_edge;
 extern float *_graphNodeImportance;
-extern Boolean _supportNodeImportance;
+extern bool _supportNodeImportance;
 
-extern Boolean _windowRep_limit_neglect_trivial;
+extern bool _windowRep_limit_neglect_trivial;
 
 void FindWindowRepInWindow(GRAPH *G, SET *W, int *windowRepInt, int *D, unsigned char perm[]);
 void ProcessWindowRep(GRAPH *G, unsigned *Varray, int windowRepInt);

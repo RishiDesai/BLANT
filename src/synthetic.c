@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include <sys/file.h>
 #include <unistd.h>
@@ -8,7 +8,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "tinygraph.h"
 #include "graph.h"
 #include "blant.h"
@@ -17,7 +21,7 @@
 
 char USAGE[] = "synthetic -k maxk -s STAGNATED Gtarget.el Gsynth.el [--blant.Gt.index files--] [--blant.Gs.index files--]\n - output is new Gsynth.el\n";
 
-Boolean _supportNodeNames = false;
+bool _supportNodeNames = false;
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -499,7 +503,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
                 // decrement a graphlet
                 canon = BLANT[k-1][line][0];
-                Boolean wasConnected = SetIn(_connectedCanonicals[k-1], canon);
+                bool wasConnected = SetIn(_connectedCanonicals[k-1], canon);
                 oldcanondiff = D[1][k-1][canon] - D[0][k-1][canon];
                 --D[1][k-1][canon];
                 change = -1;
@@ -525,7 +529,7 @@ void ReBLANT(int D[2][MAX_K][_maxNumCanon], GKState* gkstate, Dictionary GDVhist
 
                 TinyGraphInducedFromGraph(g[k-1], G, &(BLANT[k-1][line][1])); // address of the Varray without element 0
                 BLANT[k-1][line][0] = _K[k-1][TinyGraph2Int(g[k-1], k)];
-                Boolean  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
+                bool  isConnected = SetIn(_connectedCanonicals[k-1], BLANT[k-1][line][0]);
                 if(wasConnected && !isConnected)
                     ++_numDisconnectedGraphlets;
                 if(!wasConnected && isConnected)
@@ -586,13 +590,13 @@ void Revert(int ***BLANT, int D[2][MAX_K][_maxNumCanon], Dictionary GDVhistogram
     while (pop(rvStack, &change) == 0){
         line = BLANT[change.k-1][change.linenum];
 
-        Boolean wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
+        bool wasConnected = SetIn(_connectedCanonicals[change.k-1], BLANT[change.k-1][change.linenum][0]);
         if ((!IGNORE_DISCONNECTED_GRAPHLETS) || wasConnected){
             if (!ISZERO(weights[GraphletGDV]))
                 AdjustGDV(change.k, change.new, -1, line, GDVhistograms, GDVbinsize, GDV, 1000);  // the 1000 has no meaning
         }
 
-        Boolean  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
+        bool  isConnected = SetIn(_connectedCanonicals[change.k-1], change.original);
         BLANT[change.k-1][change.linenum][0] = change.original;
         if ((!IGNORE_DISCONNECTED_GRAPHLETS) || isConnected){
             if (!ISZERO(weights[GraphletGDV]))
@@ -1163,9 +1167,9 @@ int main(int argc, char *argv[]){
             fp=fopen(argv[optind], "r");
             assert(fp);
 
-            BLANT[i][_k[j]-1] = (int**) Malloc(_numSamples * sizeof(int*));
+            BLANT[i][_k[j]-1] = (int**) malloc(_numSamples * sizeof(int*));
             for (line=0; line<_numSamples; line++){
-                BLANT[i][_k[j]-1][line] = (int*) Malloc((MAX_K+1) * sizeof(int));
+                BLANT[i][_k[j]-1][line] = (int*) malloc((MAX_K+1) * sizeof(int));
                 int l;
                 for (l=0; l<=_k[j]; l++){
                     if(1 != fscanf(fp, "%d", &(BLANT[i][_k[j]-1][line][l])))
@@ -1251,7 +1255,7 @@ int main(int argc, char *argv[]){
             }
         }
     }
-    Free(scratchspace);
+    free(scratchspace);
 
     // sanity check GDV bin size
     for (i=0; i<2; i++){
@@ -1269,7 +1273,7 @@ int main(int argc, char *argv[]){
     SET **samples[MAX_K];
     for(i=0; i<MAX_K; i++){
         if (_k[i] == -1) break;
-        samples[_k[i]-1] = (SET**) Malloc(G[1]->n * sizeof(SET*));
+        samples[_k[i]-1] = (SET**) malloc(G[1]->n * sizeof(SET*));
     }
 
     for(i=0; i<MAX_K; i++){
@@ -1287,10 +1291,10 @@ int main(int argc, char *argv[]){
     unsigned **Varrays[MAX_K];
     for (i=0; i<MAX_K; i++){
         if (_k[i] == -1) break;
-        Varrays[_k[i]-1] = (int**) Malloc(G[1]->n * sizeof(int*));
+        Varrays[_k[i]-1] = (int**) malloc(G[1]->n * sizeof(int*));
 
         for (j=0; j < G[1]->n; j++){
-            Varrays[_k[i]-1][j] =  (int*) Malloc((1+SetCardinality(samples[_k[i]-1][j]))* sizeof(int));
+            Varrays[_k[i]-1][j] =  (int*) malloc((1+SetCardinality(samples[_k[i]-1][j]))* sizeof(int));
             Varrays[_k[i]-1][j][0] = SetToArray(Varrays[_k[i]-1][j]+1, samples[_k[i]-1][j]);
         }
     }
@@ -1430,7 +1434,7 @@ int main(int argc, char *argv[]){
         assert(b > 0);
 
         ccstate.histograms_size[i] = ((int) (1/b)) + 1;
-        ccstate.histograms[i] = (int*) Malloc(ccstate.histograms_size[i] * sizeof(int));
+        ccstate.histograms[i] = (int*) malloc(ccstate.histograms_size[i] * sizeof(int));
         for(j=0; j < ccstate.histograms_size[i]; j++)
             ccstate.histograms[i][j] = 0;
 

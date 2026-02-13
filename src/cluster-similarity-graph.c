@@ -1,11 +1,14 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "sets.h"
 #include "graph.h"
 #include "hashmap.h"
 #include "priority-queue.h"
-#include "rand48.h"
 
 unsigned _Gn; // number of nodes in the INPUT (user's) network
 #define MAX_CLUSTERS 1000000 // maximum number of clusters in the cluster similarity graph
@@ -35,12 +38,12 @@ static unsigned _line; // current line number
 CLUSTER *ReadCluster(FILE *fp)
 {
     unsigned i,v;
-    CLUSTER *c = (CLUSTER*) Calloc(1,sizeof(CLUSTER));
+    CLUSTER *c = (CLUSTER*) calloc(1,sizeof(CLUSTER));
     c->nodes = SetAlloc(_Gn);
     c->n = c->m = c->nc2 = c->k = c->ED = 0;
     int numRead = fscanf(fp, "%u%u%u%u%lf", &c->n, &c->m, &c->nc2, &c->k, &c->ED);
     if(numRead <= 0) {
-	SetFree(c->nodes); Free(c); return NULL;
+	SetFree(c->nodes); free(c); return NULL;
     }
     if(numRead!=5) Fatal("cluster %d: fscanf only read %d values: n %d m %d nc2 %d k %d ED %g\n", _line, numRead,c->n,c->m,c->nc2,c->k,c->ED);
     assert(c->nc2 == c->n*(c->n-1)/2); // assert we are in sync with the lines, because nc2 is "n choose 2"
@@ -203,14 +206,14 @@ void init(int argc, char *argv[]){
     if(strcmp(argv[3], "OMOD") == 0) measure=MEASURE_OMOD;
     else if(strcmp(argv[3], "EDN") == 0) measure=MEASURE_EDN;
     assert(measure!=undef);
-    Boolean sparse = true, names=false;
+    bool sparse = true, names=false;
 
     FILE* netFile = fopen(argv[4],"r");
     _inputNet = GraphReadEdgeList(netFile,sparse,false,false);
     _Gn=_inputNet->n;
     assert(_Gn>0);
-    _finalMemberships = Calloc(_Gn, sizeof(_finalMemberships[0]));
-    _clusterMemberships = Calloc(_Gn, sizeof(SET*));
+    _finalMemberships = calloc(_Gn, sizeof(_finalMemberships[0]));
+    _clusterMemberships = calloc(_Gn, sizeof(SET*));
     printf("Initialization done. Graph has %d nodes\n", _Gn);
     _clusterSimGraph = GraphAlloc(MAX_CLUSTERS, sparse, names);
     GraphMakeWeighted(_clusterSimGraph);	
@@ -235,7 +238,7 @@ int main(int argc, char *argv[])
 	    if(_overlap[i] / (1.0*maxCard) > _overlapThresh) {
 		//printf("Skipping cluster %d\n", _numClus);
 		SetFree(c->nodes);
-		Free(c);
+		free(c);
 		c=NULL;
 		break;
 	    }

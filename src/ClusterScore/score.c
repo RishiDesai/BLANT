@@ -1,17 +1,17 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #include "score.h"
 #include "anneal.h"
 
 // Allocate a clustering and return it with the zero'th cluster assigned to all nodes in G.
 CLUSTERING *ClusteringAlloc(GRAPH *G) {
-    CLUSTERING *C = Calloc(sizeof(CLUSTERING), G->n);
+    CLUSTERING *C = calloc(sizeof(CLUSTERING), G->n);
     C->G = G;
     C->nC=0;
-    C->clusters = Calloc(G->n, sizeof(SET*));
+    C->clusters = calloc(G->n, sizeof(SET*));
     C->clusters[0] = SetAlloc(G->n);
     for(int i=0;i < G->n; i++) SetAdd(C->clusters[0], i);
-    C->clusSize = Calloc(G->n, sizeof(unsigned));
+    C->clusSize = calloc(G->n, sizeof(unsigned));
     C->clusSize[0] = G->n;
     ++C->nC;
     return C;
@@ -87,7 +87,7 @@ void SplitCluster(CLUSTERING *C, unsigned who) {
     C->nC++;
 }
 
-Boolean TrySplit(CLUSTERING *C){
+bool TrySplit(CLUSTERING *C){
     GRAPH *G = C->G;
     assert(0 < C->nC && C->nC < G->n-1);
     assert(C->clusters[C->nC-1]);
@@ -119,7 +119,7 @@ Boolean TrySplit(CLUSTERING *C){
     }
 }
 
-Boolean TryMerge(CLUSTERING *C){
+bool TryMerge(CLUSTERING *C){
     GRAPH *G = C->G;
     assert(1 < C->nC && C->nC <= G->n);
     assert(C->clusters[C->nC-1]);
@@ -159,7 +159,7 @@ Boolean TryMerge(CLUSTERING *C){
     else return false;
 }
 
-Boolean TryMove(CLUSTERING *C){
+bool TryMove(CLUSTERING *C){
     assert(0 < C->nC && C->nC < C->G->n);
     assert(C->clusters[C->nC-1]);
     assert(C->clusters[C->nC]==NULL);
@@ -187,9 +187,9 @@ void OutputClustering(int sig) {
 }
 
 // returns whether the iteration was successful (ie., move accepted)
-Boolean ScoreIteration(double pBad, Boolean running) {
+bool ScoreIteration(double pBad, bool running) {
     static unsigned fails, delay;
-    Boolean success = TryMove(_C);
+    bool success = TryMove(_C);
     if(running && ++delay > 10000) {
 	double fullScore = ScoreClustering(_C);
 	delay=0;

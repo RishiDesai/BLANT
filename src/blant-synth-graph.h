@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 #ifndef BLANT_SYNTH_GRAPH_H
 #define BLANT_SYNTH_GRAPH_H
@@ -12,7 +12,7 @@
 
 #define GEN_NODE_EXPANSION 0
 #define GEN_MCMC 1
-extern Boolean _GRAPH_GEN;
+extern bool _GRAPH_GEN;
 extern int _GRAPH_GEN_EDGES;
 extern int _KS_NUMSAMPLES;
 extern float confidence;

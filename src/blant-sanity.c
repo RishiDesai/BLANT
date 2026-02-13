@@ -1,4 +1,4 @@
-// This software is part of github.com/waynebhayes/BLANT, and is Copyright(C) Wayne B. Hayes 2025, under the GNU LGPL 3.0
+// This software is part of github.com/waynebhayes/BLANT, and is Copyright (c) BLANT contributors 2025, under the GNU LGPL 3.0
 // (GNU Lesser General Public License, version 3, 2007), a copy of which is contained at the top of the repo.
 // BLANT sanity checker: given a value of k, n and the name of a "large" graph input file G, read lines from
 // BLANT that have been sorted by the first column, which is the canonical graphlet ID.  Then, without caring
@@ -19,7 +19,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "misc.h"
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "blant-fatal.h"
+#include "blant-utils-base.h"
 #include "graph.h"
 
 static int _k;
