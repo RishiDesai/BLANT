@@ -136,7 +136,7 @@ $(OBJDIR)/mt19937.o: $(SRCDIR)/mt19937_stub.cpp
 	$(CXX) -std=c++11 -c $< -o $@
 
 fast-canon-map: $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -DNDEBUG -DPARANOID_ASSERTS=0 -march=native -pthread -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(BLANT_BOTH)
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(BLANT_BOTH)
 
 slow-canon-maps: $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(BLANT_BOTH)
@@ -263,174 +263,10 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 
 .PHONY: test_fast
 
-### nauty library (built externally in third_party/) ###
-
-NAUTY_HOME = third_party/nauty2_8_9
-NAUTY_LIB = $(NAUTY_HOME)/nauty.a
-NAUTY_INC = -I $(NAUTY_HOME)
-NAUTY_LINK = $(NAUTY_LIB) -lm -lpthread
-
-# Build nauty from source tarball if not already built
-# Note: nauty's configure generates lowercase 'makefile', so we check for nauty.h as the sentinel.
-$(NAUTY_LIB): | $(NAUTY_HOME)/nauty.h
-	cd $(NAUTY_HOME) && $(MAKE) -j nauty.a
-
-$(NAUTY_HOME)/nauty.h:
-	@echo "nauty not found. Download nauty2_8_9.tar.gz into third_party/ and run:"
-	@echo "  cd third_party && tar xzf nauty2_8_9.tar.gz && cd nauty2_8_9 && ./configure && make nauty.a geng"
-	@false
-
-# geng binary (for enumerating non-isomorphic graphs)
-geng: $(NAUTY_HOME)/geng
-	ln -sf $(NAUTY_HOME)/geng $@
-
-$(NAUTY_HOME)/geng: | $(NAUTY_HOME)/nauty.h
-	cd $(NAUTY_HOME) && $(MAKE) geng
-
-# nauty-canonical wrapper object
-$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
-
-# Cross-validation test binary
-tests/cross-validate-nauty: tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | $(OBJDIR)
-	@mkdir -p tests
-	$(GCC) -O3 -o $@ tests/cross-validate-nauty.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
-
-# Standalone nauty-canonical test binary
-test-nauty-canonical: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(SRCDIR)/libblant.c $(NAUTY_LIB) | $(OBJDIR)
-	$(GCC) -O3 -DNAUTY_CANONICAL_TEST -o $@ $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
-
-.PHONY: cross-validate
-cross-validate: tests/cross-validate-nauty $(canon_all)
-	@for k in 3 4 5 6 7; do \
-		echo "Cross-validating k=$$k..."; \
-		./tests/cross-validate-nauty $$k || exit 1; \
-	done
-	@echo "All cross-validations passed (k=3 through k=7)"
-
-$(OBJDIR):
-	@mkdir -p $(OBJDIR)
-
-### Large-K support (k=9, k=10) using nauty ###
-
-LARGE_K_CFLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10
-
-# libwayne-backed tinygraph/sets sources were removed from master.
-# Keep this empty so large-k targets rely on the in-tree src/ implementation.
-LARGE_K_WAYNE_OBJS =
-
-# Generator: canon_list from geng output
-generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-canon-list.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
-
-# Generator: orbit_map from canon_list
-generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -o $@ $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_INC) -I $(SRCDIR) $(BLANT_BOTH) $(NAUTY_LINK)
-
-# Generate canon_list9.txt (and signature file)
-$(BLANT_CANON_DIR)/canon_list9.txt: generate-canon-list geng | $(BLANT_CANON_DIR)
-	./geng 9 2>/dev/null | ./generate-canon-list 9 $(BLANT_CANON_DIR)/canon-ordinal-to-signature9.txt > $@
-
-# Generate canon_list10.txt (and signature file)
-$(BLANT_CANON_DIR)/canon_list10.txt: generate-canon-list geng | $(BLANT_CANON_DIR)
-	./geng 10 2>/dev/null | ./generate-canon-list 10 $(BLANT_CANON_DIR)/canon-ordinal-to-signature10.txt > $@
-
-# Generate orbit_map9.txt
-$(BLANT_CANON_DIR)/orbit_map9.txt: generate-orbit-map $(BLANT_CANON_DIR)/canon_list9.txt
-	./generate-orbit-map 9 $(BLANT_CANON_DIR)/canon_list9.txt > $@
-
-# Generate orbit_map10.txt
-$(BLANT_CANON_DIR)/orbit_map10.txt: generate-orbit-map $(BLANT_CANON_DIR)/canon_list10.txt
-	./generate-orbit-map 10 $(BLANT_CANON_DIR)/canon_list10.txt > $@
-
-# Ensure canon_maps directory exists
-$(BLANT_CANON_DIR):
-	mkdir -p $(BLANT_CANON_DIR)
-
-# Build blant-large-k: BLANT with k>8 support via nauty
-# This binary supports k=3 through k=10 at runtime (k is a CLI argument).
-# For k<=8 it uses the same flat-table path as regular blant.
-# For k>8 it uses nauty for on-the-fly canonical labeling.
-LARGE_K_SRCDIR_FILES = $(addprefix $(SRCDIR)/, blant.c blant-window.c blant-output.c blant-utils.c blant-sampling.c blant-synth-graph.c importance.c odv.c blant-pthreads.c)
-
-$(OBJDIR)/libblant-large-k.o: $(SRCDIR)/libblant.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(BLANT_COMP)
-
-$(OBJDIR)/nauty-canonical-large-k.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB) | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
-
-$(OBJDIR)/blant-predict-large-k.o: $(SRCDIR)/blant-predict.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(BLANT_COMP)
-
-# Build all large-k .o files
-LARGE_K_OBJS_FROM_SRC = $(addprefix $(OBJDIR)/large-k-, blant.o blant-window.o blant-output.o blant-utils.o blant-sampling.o blant-synth-graph.o importance.o odv.o blant-pthreads.o)
-
-$(OBJDIR)/large-k-%.o: $(SRCDIR)/%.c $(BLANT_HEADERS) | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
-
-blant-large-k: $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/libblant-large-k.o $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(NAUTY_LIB) $(OBJDIR)/mt19937.o
-	$(CXX) $(LARGE_K_CFLAGS) -o $@ $(OBJDIR)/libblant-large-k.o $(LARGE_K_OBJS_FROM_SRC) $(OBJDIR)/nauty-canonical-large-k.o $(OBJDIR)/blant-predict-large-k.o $(LARGE_K_WAYNE_OBJS) $(OBJDIR)/mt19937.o $(BLANT_LINK) $(NAUTY_LINK)
-
-.PHONY: k9 k10
-k9: blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt
-k10: blant-large-k $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/orbit_map10.txt
-
-### Strong Verification Tests for k=9/k=10 ###
-
-# Common globals object for large-k test programs
-$(OBJDIR)/test-globals-large-k.o: tests/test-globals-large-k.c | $(OBJDIR)
-	@mkdir -p $(dir $@)
-	$(GCC) -O3 $(LARGE_K_CFLAGS) -c $< -o $@ $(NAUTY_INC) -I $(SRCDIR) $(BLANT_COMP)
-
-# Link recipe shared by all strong test binaries
-STRONG_TEST_LINK_OBJS = $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/libblant.c $(LARGE_K_WAYNE_OBJS) $(NAUTY_LINK)
-STRONG_TEST_CFLAGS = -O3 $(LARGE_K_CFLAGS) $(BLANT_FAST_FLAGS) $(NAUTY_INC) -I $(SRCDIR)
-
-# Test 1: Canonical idempotency
-tests/test-idempotent: tests/test-idempotent.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-idempotent.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
-
-# Test 2: Isomorphism invariance
-tests/test-isomorphism-invariant: tests/test-isomorphism-invariant.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-isomorphism-invariant.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
-
-# Test 3: Canonical consistency (nauty returns same canonical for all permutations)
-tests/test-canonical-minimum: tests/test-canonical-minimum.c $(OBJDIR)/test-globals-large-k.o $(SRCDIR)/nauty-canonical.c $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-canonical-minimum.c $(SRCDIR)/nauty-canonical.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
-
-# Test 4: Subgraph consistency (chain of trust k->k-1)
-tests/test-subgraph-consistency: tests/test-subgraph-consistency.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-subgraph-consistency.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
-
-# Test 5: Orbit-degree consistency
-tests/test-orbit-degrees: tests/test-orbit-degrees.c $(OBJDIR)/test-globals-large-k.o $(NAUTY_LIB) $(LARGE_K_WAYNE_OBJS)
-	$(GCC) $(STRONG_TEST_CFLAGS) -o $@ tests/test-orbit-degrees.c $(STRONG_TEST_LINK_OBJS) $(BLANT_BOTH)
-
-STRONG_TEST_BINS = tests/test-idempotent tests/test-isomorphism-invariant tests/test-canonical-minimum tests/test-subgraph-consistency tests/test-orbit-degrees
-
-.PHONY: strong-tests test-k9-strong test-k10-strong
-strong-tests: $(STRONG_TEST_BINS)
-
-test-k9-strong: strong-tests blant-large-k $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/orbit_map9.txt
-	@echo "=== Running Strong k=9 Verification Tests ==="
-	bash tests/run_strong_tests.sh 9
-
-test-k10-strong: strong-tests blant-large-k $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/orbit_map10.txt
-	@echo "=== Running Strong k=10 Verification Tests ==="
-	bash tests/run_strong_tests.sh 10
-
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant blant-large-k create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
-	@/bin/rm -f geng test-nauty-canonical tests/cross-validate-nauty generate-canon-list generate-orbit-map
-	@/bin/rm -f $(STRONG_TEST_BINS)
-	@# nauty.a stays in third_party/ (use 'make pristine' to fully clean)
+	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:

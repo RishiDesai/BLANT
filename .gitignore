@@ -39,25 +39,8 @@ core*
 *.swp
 .un~
 
-# k=10 canon_maps files are too large (~1.4 GB) to commit
-canon_maps/canon_list10.txt
-canon_maps/orbit_map10.txt
-canon_maps/canon-ordinal-to-signature10.txt
-canon_maps/alpha_list_*10.txt
-
 orca_jesse_blant_table/UpperToLower*
 make-orca-jesse-blant-table
 make-subcanon-maps
 *.dot
 test_stamp
-
-# generated large-k helpers and test binaries
-geng
-generate-canon-list
-generate-orbit-map
-tests/cross-validate-nauty
-tests/test-idempotent
-tests/test-isomorphism-invariant
-tests/test-canonical-minimum
-tests/test-subgraph-consistency
-tests/test-orbit-degrees

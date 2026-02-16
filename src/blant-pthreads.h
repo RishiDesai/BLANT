@@ -10,20 +10,6 @@
 #define CACHE_LINE_SIZE 64
 
 
-#if MAX_K > 8
-typedef struct {
-    // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
-    double *graphletCount;
-    double *graphletConcentration;
-    double **graphletDegreeVector;
-    double **orbitDegreeVector;
-    SET*** communityNeighbors;
-    double *canonNumStarMotifs;
-    // Batch counters for confidence intervals (thread-local to avoid race conditions)
-    unsigned long *batchRawCount;
-    unsigned long batchRawTotalSamples;
-} Accumulators;
-#else
 typedef struct {
     // local accumulator values, they function the same as globals but ARE LOCAL TO THREADS
     double graphletCount[MAX_CANONICALS];
@@ -36,7 +22,6 @@ typedef struct {
     unsigned long batchRawCount[MAX_CANONICALS];
     unsigned long batchRawTotalSamples;
 } Accumulators;
-#endif
 
 // ThreadData structure (now after all required types are defined)
 // https://docs.oracle.com/cd/E19120-01/open.solaris/816-5137/tlib-4/index.html

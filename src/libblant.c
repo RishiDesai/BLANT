@@ -84,9 +84,6 @@ void Int2TinyGraph(TINY_GRAPH* G, Gint_type Gint)
 ** Mmap the canon_map binary file to the aligned array.
 */
 Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
-    // For k>8, the flat canon_map.bin file doesn't exist and the array would be absurdly large.
-    // Return NULL gracefully — the caller (SetGlobalCanonMaps) handles this for k>8.
-    if (k > 8) return NULL;
 #if SELF_LOOPS
     if (k > 7) Fatal("cannot have k>7 when SELF_LOOPS");
     int Bk = (1U <<(k*(k+1)/2));
@@ -94,30 +91,12 @@ Gordinal_type* mapCanonMap(char* BUF, Gordinal_type *K, int k) {
     int Bk = (1U <<(k*(k-1)/2));
 #endif
     sprintf(BUF, "%s/%s/canon_map%d.bin", _BLANT_DIR, _CANON_DIR, k);
-
-#if TINY_SET_SIZE == 16
-    // The .bin files were generated with Gordinal_type=uint16_t (TINY_SET_SIZE=8).
-    // With TINY_SET_SIZE=16, Gordinal_type=uint32_t. We must read and convert.
-    FILE *fp = fopen(BUF, "rb");
-    if (!fp) return NULL;
-    Gordinal_type *Kf = (Gordinal_type*) Calloc(Bk, sizeof(Gordinal_type));
-    unsigned short *temp = (unsigned short*) Calloc(Bk, sizeof(unsigned short));
-    if ((int)fread(temp, sizeof(unsigned short), Bk, fp) != Bk) {
-	Free(temp); Free(Kf); fclose(fp); return NULL;
-    }
-    int i;
-    for (i = 0; i < Bk; i++) Kf[i] = (Gordinal_type)temp[i];
-    Free(temp);
-    fclose(fp);
-    return Kf;
-#else
     int Kfd = open(BUF, 0*O_RDONLY);
     if(Kfd <= 0) return NULL;
     //short int *Kf = Mmap(K, Bk*sizeof(short int), Kfd); // Using Mmap will cause error due to MAP_FIXED flag
     Gordinal_type *Kf = (Gordinal_type*) mmap(K, sizeof(Gordinal_type)*Bk, PROT_READ, MAP_PRIVATE, Kfd, 0);
     assert(Kf != MAP_FAILED);
     return Kf;
-#endif
 }
 
 SET *canonListPopulate(char *BUF, Gint_type *canon_list, int k, char *canon_num_edges) {

@@ -83,21 +83,12 @@ unsigned long _known_canonical_count[] =
 	{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592}; // note (k=12) too big for 32 bits
 	//k=1  2  3   4   5   6     7     8      9        10         11          12
 
-#if MAX_K > 8
-Gint_type *_alphaList = NULL;
-Gordinal_type _numCanon;
-char *_canonNumEdges = NULL;
-double _totalStarMotifs;
-int *_canonNumStarMotifs = NULL;
-Gint_type *_canonList = NULL;
-#else
 Gint_type _alphaList[MAX_CANONICALS];
 Gordinal_type _numCanon;
 char _canonNumEdges[MAX_CANONICALS];
 double _totalStarMotifs; // This is a double because the value can *way* overflow even a 128-bit integer on large graphs.
 int _canonNumStarMotifs[MAX_CANONICALS]; // However, the per-canonical values are integers
 Gint_type _canonList[MAX_CANONICALS]; // map ordinals to integer representation of the canonical
-#endif
 SET *_connectedCanonicals; // the SET of canonicals that are connected.
 SET ***_communityNeighbors;
 char _communityMode; // 'g' for graphlet or 'o' for orbit
@@ -110,43 +101,24 @@ int *_componentSize;
 int *_startNodes, _numStartNodes;
 SET *_startNodeSet;
 
-#if MAX_K > 8
-Gint_type _numOrbits, (*_orbitList)[MAX_K] = NULL;
-Gordinal_type *_orbitCanonMapping = NULL;
-char *_orbitCanonNodeMapping = NULL;
-#else
 Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
 Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
-#endif
 int *_whichComponent;
 
 enum OutputMode _outputMode = undef;
 unsigned long _numSamples;
 int **_graphletDistributionTable;
-#if MAX_K > 8
-double *_graphletCount = NULL, *_graphletConcentration = NULL, _absoluteCountMultiplier=1;
-unsigned long *_batchRawCount = NULL, _batchRawTotalSamples;
-#else
 double _graphletCount[MAX_CANONICALS], _graphletConcentration[MAX_CANONICALS], _absoluteCountMultiplier=1;
 unsigned long _batchRawCount[MAX_CANONICALS], _batchRawTotalSamples; // batches for confidence intervals
-#endif
 
 enum CanonicalDisplayMode _displayMode = undefined;
 enum FrequencyDisplayMode _freqDisplayMode = freq_display_mode_undef;
 
-#if MAX_K > 8
-int *_outputMapping = NULL;
-#else
 int _outputMapping[MAX_CANONICALS];
-#endif
 
 int _orca_orbit_mapping[58];
-#if MAX_K > 8
-int *_connectedOrbits = NULL;
-#else
 int _connectedOrbits[MAX_ORBITS];
-#endif
 int _numConnectedOrbits;
 
 // A bit counter-intuitive: we need to allocate this many vectors each of length [_numNodes],
@@ -154,13 +126,8 @@ int _numConnectedOrbits;
 // We do this simply because we know the length of MAX_CANONICALS so we pre-know the length of
 // the first dimension, otherwise we'd need to get more funky with the pointer allocation.
 // Only one of these actually get allocated, depending upon outputMode.
-#if MAX_K > 8
-double **_graphletDegreeVector = NULL;
-double **_orbitDegreeVector = NULL;
-#else
 double *_graphletDegreeVector[MAX_CANONICALS];
 double *_orbitDegreeVector[MAX_ORBITS];
-#endif
 
 double *_cumulativeProb, _worstPrecision, _meanPrec;
 enum PrecisionMode _precisionMode = mean;
@@ -808,11 +775,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
                 int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
 
-#if MAX_K > 8
-                STAT **sTotal = (STAT**) Calloc(_numCanon, sizeof(STAT*));
-#else
                 STAT *sTotal[MAX_CANONICALS];
-#endif
 		if(_desiredPrec && _quiet<2) {
 		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
@@ -914,9 +877,6 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 else {
                     if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", batchCounter);
                 }
-#if MAX_K > 8
-                Free(sTotal);
-#endif
             } else {
                 Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }
@@ -1002,7 +962,7 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 _numWindowRep = 0;
                 if (_windowSampleMethod == WINDOW_SAMPLE_MIN || _windowSampleMethod == WINDOW_SAMPLE_MIN_D ||
 			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MIN)
-                    windowRepInt = (_k <= 8) ? (int)maxBk : (int)_numCanon;
+                    windowRepInt = maxBk;
                 if (_windowSampleMethod == WINDOW_SAMPLE_MAX || _windowSampleMethod == WINDOW_SAMPLE_MAX_D ||
 			_windowSampleMethod == WINDOW_SAMPLE_LEAST_FREQ_MAX)
                     windowRepInt = -1;

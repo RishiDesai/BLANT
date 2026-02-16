@@ -8,19 +8,12 @@
 #include "blant-predict.h"
 #include "bintree.h"
 #include "sim_anneal.h"
-#if MAX_K > 8
-#include "nauty-canonical.h"
-#endif
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
 // For simplicity we use the same 3 bits per entry, and assume 8 entries, even for k<8.  It wastes memory for k<4, but
 // makes the coding much simpler.
-#if MAX_K <= 8
 typedef unsigned char kperm[3]; // The 24 bits are stored in 3 unsigned chars.
-#else
-typedef unsigned char kperm[5]; // 4 bits per node x 10 nodes = 40 bits = 5 bytes (for k>8 builds)
-#endif
 
 // WRONG COMMENT HERE: we actually *DO* use less memory...
 // Here's where we're lazy on saving memory, and we could do better.  We're going to allocate a static array
@@ -30,21 +23,7 @@ typedef unsigned char kperm[5]; // 4 bits per node x 10 nodes = 40 bits = 5 byte
 //static kperm Permutations[maxBk] __attribute__ ((aligned (8192)));
 kperm *Permutations = NULL; // Allocating memory dynamically
 
-#if MAX_K > 8
-static int (*_magicTable)[12] = NULL; // dynamically allocated for large-k builds
-#else
 static int _magicTable[MAX_CANONICALS][12]; //Number of canonicals for k=8 by number of columns in magic table
-#endif
-
-// Comparison function for binary search on Gint_type arrays (used by k>8 nauty path)
-#if MAX_K > 8
-static int _siCmpGint(const void *A, const void *B) {
-    const Gint_type *a = A, *b = B;
-    if (*a > *b) return 1;
-    if (*a < *b) return -1;
-    return 0;
-}
-#endif
 
 #if DYNAMIC_CANON_MAP
 static int CmpInt(foint a, foint b) {
@@ -143,25 +122,7 @@ Gordinal_type L_K_Func(Gint_type Gint) {
     return s;
 }
 #else
-// For k>8 (MAX_K > 8 builds), L_K_Func uses nauty to compute the canonical form
-// and binary search to find the ordinal. For k<=8 without DYNAMIC_CANON_MAP, this
-// should never be called (the flat table _K[Gint] is used instead).
-#if MAX_K > 8
-Gordinal_type L_K_Func(Gint_type Gint) {
-    TINY_GRAPH *tg = TinyGraphAlloc(_k);
-    Int2TinyGraph(tg, Gint);
-    unsigned char perm[MAX_K];
-    Gint_type canon_gint = NautyCanonical(tg, _k, perm);
-    TinyGraphFree(tg);
-
-    /* Binary search _canonList[] for the canonical Gint to find the ordinal */
-    Gint_type *found = (Gint_type *)bsearch(&canon_gint, _canonList, _numCanon, sizeof(_canonList[0]), _siCmpGint);
-    assert(found && "canonical Gint not found in _canonList");
-    return (Gordinal_type)(found - _canonList);
-}
-#else
 Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
-#endif
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -171,74 +132,21 @@ void SetGlobalCanonMaps(void)
     int i;
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= MAX_K);
-    if (_k <= 8) {
 #if SELF_LOOPS
-	_Bk = (1U <<(_k*(_k+1)/2));
+    _Bk = (1U <<(_k*(_k+1)/2));
 #else
-	_Bk = (1U <<(_k*(_k-1)/2));
+    _Bk = (1U <<(_k*(_k-1)/2));
 #endif
-    } else {
-	_Bk = 0; // k>8: no flat table, _Bk is not meaningful
-    }
-
-#if MAX_K > 8
-    // Dynamic allocation of large arrays for k>8 builds.
-    // Allocate to MAX_CANONICALS/MAX_ORBITS since the exact counts aren't known yet.
-    // Heap allocation of ~4 GB is fine; BSS of this size would overflow the linker.
-    _canonList = (Gint_type*) Calloc(MAX_CANONICALS, sizeof(Gint_type));
-    _canonNumEdges = (char*) Calloc(MAX_CANONICALS, sizeof(char));
-    _alphaList = (Gint_type*) Calloc(MAX_CANONICALS, sizeof(Gint_type));
-    _canonNumStarMotifs = (int*) Calloc(MAX_CANONICALS, sizeof(int));
-    _outputMapping = (int*) Calloc(MAX_CANONICALS, sizeof(int));
-    _graphletCount = (double*) Calloc(MAX_CANONICALS, sizeof(double));
-    _graphletConcentration = (double*) Calloc(MAX_CANONICALS, sizeof(double));
-    _batchRawCount = (unsigned long*) Calloc(MAX_CANONICALS, sizeof(unsigned long));
-    _graphletDegreeVector = (double**) Calloc(MAX_CANONICALS, sizeof(double*));
-    _orbitList = (Gint_type(*)[MAX_K]) Calloc(MAX_CANONICALS, sizeof(Gint_type) * MAX_K);
-    _orbitCanonMapping = (Gordinal_type*) Calloc(MAX_ORBITS, sizeof(Gordinal_type));
-    _orbitCanonNodeMapping = (char*) Calloc(MAX_ORBITS, sizeof(char));
-    _connectedOrbits = (int*) Calloc(MAX_ORBITS, sizeof(int));
-    _orbitDegreeVector = (double**) Calloc(MAX_ORBITS, sizeof(double*));
-    _magicTable = (int(*)[12]) Calloc(MAX_CANONICALS, sizeof(int) * 12);
-#endif
-
     _connectedCanonicals = canonListPopulate(BUF, _canonList, _k, _canonNumEdges);
     _numCanon = _connectedCanonicals->maxElem;
     _numConnectedCanon = SetCardinality(_connectedCanonicals);
     _numOrbits = orbitListPopulate(BUF, _orbitList, _orbitCanonMapping, _orbitCanonNodeMapping, _numCanon, _k);
-    if (_k <= 8) {
-	_K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
-#if TINY_SET_SIZE == 16
-	// For TINY_SET_SIZE=16, kperm is 5 bytes but .bin file has 3-byte entries.
-	// Read the 3-byte entries and store them in 5-byte kperm (zeroing the extra bytes).
-	sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
-	FILE *pfp = fopen(BUF, "rb");
-	if(pfp) {
-	    typedef unsigned char kperm3[3]; // original 3-byte format
-	    kperm3 *temp = (kperm3*) Calloc(_Bk, sizeof(kperm3));
-	    fread(temp, sizeof(kperm3), _Bk, pfp);
-	    fclose(pfp);
-	    Permutations = (kperm*) Calloc(_Bk, sizeof(kperm));
-	    unsigned int ii;
-	    for(ii = 0; ii < _Bk; ii++) {
-		Permutations[ii][0] = temp[ii][0];
-		Permutations[ii][1] = temp[ii][1];
-		Permutations[ii][2] = temp[ii][2];
-		// kperm[3] and kperm[4] are already zeroed by Calloc
-	    }
-	    Free(temp);
-	}
-#else
-	sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
-	int pfd = open(BUF, 0*O_RDONLY);
-	if(pfd>=0) {
-	    Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
-	    assert(Permutations != MAP_FAILED);
-	}
-#endif
-    } else {
-	_K = NULL;          // signal to use nauty path via L_K_Func
-	Permutations = NULL; // signal to use nauty path via ExtractPerm
+    _K = (Gordinal_type*) mapCanonMap(BUF, _K, _k);
+    sprintf(BUF, "%s/%s/perm_map%d.bin", _BLANT_DIR, _CANON_DIR, _k);
+    int pfd = open(BUF, 0*O_RDONLY);
+    if(pfd>=0) {
+	Permutations = (kperm*) mmap(Permutations, sizeof(kperm)*_Bk, PROT_READ, MAP_PRIVATE, pfd, 0);
+	assert(Permutations != MAP_FAILED);
     }
     _numConnectedOrbits = 0;
     for (i=0; i < _numOrbits; i++)
@@ -273,30 +181,14 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
+    assert(Permutations);
     if(Permutations) {
-	// k<=8 flat table path: extract permutation from mmap'd perm_map.bin
 	int j, i32 = 0;
 	for(j=0;j<3;j++) i32 |= (Permutations[Gint][j] << j*8);
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
-    }
-#if MAX_K > 8
-    else {
-	// k>8 nauty path: NautyCanonical fills perm[] as a side effect
-	TINY_GRAPH *tg = TinyGraphAlloc(_k);
-	Int2TinyGraph(tg, Gint);
-	Gint_type canon_gint = NautyCanonical(tg, _k, perm);
-	TinyGraphFree(tg);
-	// Binary search for ordinal
-	Gint_type *found = (Gint_type *)bsearch(&canon_gint, _canonList, _numCanon,
-	    sizeof(_canonList[0]), _siCmpGint);
-	assert(found && "canonical Gint not found in _canonList");
-	return (Gordinal_type)(found - _canonList);
-    }
-#else
-    else return 0;
-#endif
+    } else return 0; // Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])

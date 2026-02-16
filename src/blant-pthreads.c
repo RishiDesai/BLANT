@@ -28,23 +28,12 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, aligned_size); // zero out everything including padding
-
-#if MAX_K > 8
-    // Allocate dynamic arrays for large-k builds
-    accums->graphletCount = (double*) calloc(_numCanon, sizeof(double));
-    accums->graphletConcentration = (double*) calloc(_numCanon, sizeof(double));
-    accums->canonNumStarMotifs = (double*) calloc(_numCanon, sizeof(double));
-    accums->batchRawCount = (unsigned long*) calloc(_numCanon, sizeof(unsigned long));
-    accums->orbitDegreeVector = (double**) calloc(_numOrbits, sizeof(double*));
-#endif
-
+    
     // Initialize batch counters
     accums->batchRawTotalSamples = 0;
-#if MAX_K <= 8
     for (int i = 0; i < MAX_CANONICALS; i++) {
         accums->batchRawCount[i] = 0;
     }
-#endif
     
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
@@ -90,26 +79,13 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     return accums;
 }
 
-#if MAX_K > 8
-static void _FreeAccumDynArrays(Accumulators *accums) {
-    if(accums->graphletCount) free(accums->graphletCount);
-    if(accums->graphletConcentration) free(accums->graphletConcentration);
-    if(accums->canonNumStarMotifs) free(accums->canonNumStarMotifs);
-    if(accums->batchRawCount) free(accums->batchRawCount);
-    // orbitDegreeVector entries freed separately, then the outer pointer
-    if(accums->orbitDegreeVector) free(accums->orbitDegreeVector);
-}
-#endif
-
 void FreeAccumulatorStruct(Accumulators *accums) {
+    assert(_numCanon <= MAX_CANONICALS);
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
         for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
         for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
     if(_outputMode & communityDetection) free(accums->communityNeighbors);
-#if MAX_K > 8
-    _FreeAccumDynArrays(accums);
-#endif
     free(accums);
 }
 
