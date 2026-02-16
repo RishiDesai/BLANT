@@ -73,12 +73,13 @@ static void format_edge_list(char *buf, int bufsize, TINY_GRAPH *tg, int k) {
             }
 }
 
-/* Entry: Gint, connected flag, num_edges, edge_list */
+/* Entry: Gint, connected flag, num_edges.
+ * Edge list is reconstructed on output from the Gint to save memory.
+ * At k=10 with 12M entries, a 1024-byte edge_list per entry would use 12GB. */
 typedef struct {
     Gint_type gint;
     int connected;
     int num_edges;
-    char edge_list[1024];
 } CanonEntry;
 
 static int cmp_entries(const void *a, const void *b) {
@@ -155,7 +156,6 @@ int main(int argc, char *argv[])
         entries[count].gint = canon_gint;
         entries[count].connected = is_connected(canon_tg, k);
         entries[count].num_edges = count_edges(canon_tg, k);
-        format_edge_list(entries[count].edge_list, sizeof(entries[count].edge_list), canon_tg, k);
         count++;
 
         if (count % 1000000 == 0)
@@ -169,15 +169,22 @@ int main(int argc, char *argv[])
 
     /* Output in canon_list format */
     printf("%d\n", count);
+    TINY_GRAPH *out_tg = TinyGraphAlloc(k);
+    char edge_buf[2048];
     int i;
     for (i = 0; i < count; i++) {
-        if (entries[i].num_edges > 0)
+        if (entries[i].num_edges > 0) {
+            /* Reconstruct TINY_GRAPH from Gint for edge list */
+            Int2TinyGraph(out_tg, entries[i].gint);
+            format_edge_list(edge_buf, sizeof(edge_buf), out_tg, k);
             printf(GINT_FMT "\t%d %d\t%s\n", entries[i].gint, entries[i].connected,
-                   entries[i].num_edges, entries[i].edge_list);
-        else
+                   entries[i].num_edges, edge_buf);
+        } else {
             printf(GINT_FMT "\t%d %d\n", entries[i].gint, entries[i].connected,
                    entries[i].num_edges);
+        }
     }
+    TinyGraphFree(out_tg);
 
     /* Optionally write signature file */
     if (sigfile) {
