@@ -136,7 +136,7 @@ $(OBJDIR)/mt19937.o: $(SRCDIR)/mt19937_stub.cpp
 	$(CXX) -std=c++11 -c $< -o $@
 
 fast-canon-map: $(SRCDIR)/fast-canon-map.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
-	$(CC) '-std=c99' -O3 -DNDEBUG -DPARANOID_ASSERTS=0 -march=native -pthread -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(BLANT_BOTH)
+	$(CC) '-std=c99' -O3 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/fast-canon-map.c $(BLANT_BOTH)
 
 slow-canon-maps: $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/slow-canon-maps.c $(BLANT_BOTH)
