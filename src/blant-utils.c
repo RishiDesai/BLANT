@@ -8,6 +8,9 @@
 #include "blant-predict.h"
 #include "bintree.h"
 #include "sim_anneal.h"
+#if HIGH_K_SUPPORTED
+#include "blant-highk.h"
+#endif
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -122,7 +125,16 @@ Gordinal_type L_K_Func(Gint_type Gint) {
     return s;
 }
 #else
-Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
+Gordinal_type L_K_Func(Gint_type Gint) {
+#if HIGH_K_SUPPORTED
+    if (_k > 8) {
+	unsigned char perm[MAX_K];
+	memset(perm, 0, sizeof(perm));
+	return HighK_ExtractPerm(perm, Gint, _k);
+    }
+#endif
+    Apology("no L_K_Func"); return -1;
+}
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -132,6 +144,47 @@ void SetGlobalCanonMaps(void)
     int i;
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= MAX_K);
+
+#if HIGH_K_SUPPORTED
+    if (_k > 8) {
+	/* High-k path: use nauty-based hash map instead of flat mmap'd tables */
+	HighK_Init(_k);
+	_Bk = 0; /* no flat table */
+	_K = NULL;
+	Permutations = NULL;
+
+	if (_highK_mode == 1) {
+	    /* Mode 1: loaded from canon_list file */
+	    _numCanon = HighK_NumCanonicals();
+	    _numOrbits = HighK_NumOrbits();
+	    /* Point static arrays at dynamic ones for compatibility */
+	    /* (code that uses _canonList[i] for small i still works) */
+	} else {
+	    /* Mode 2: on-the-fly, start with 0 known canonicals */
+	    _numCanon = 0;
+	    _numOrbits = 0;
+	}
+	_numConnectedCanon = 0;
+	_numConnectedOrbits = 0;
+	_connectedCanonicals = SetAlloc(MAX(_numCanon, 1));
+	/* Mark connected canonicals if we loaded a canon_list */
+	if (_highK_mode == 1 && _dyn_canonNumEdges) {
+	    for (i = 0; i < (int)_numCanon; i++) {
+		if (_dyn_canonNumEdges[i] > 0) {
+		    SetAdd(_connectedCanonicals, i);
+		    _numConnectedCanon++;
+		}
+	    }
+	}
+	/* Alpha lists: set all to 1 (raw counts) for now */
+	_rawCounts = true;
+	fprintf(stderr, "HighK: k=%d, numCanon=%lu, mode=%d, raw counts enabled\n",
+	    _k, (unsigned long)_numCanon, _highK_mode);
+	return;
+    }
+#endif
+
+    /* Original flat-table path for k<=8 */
 #if SELF_LOOPS
     _Bk = (1U <<(_k*(_k+1)/2));
 #else
@@ -181,6 +234,14 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
+#if HIGH_K_SUPPORTED
+    if (_k > 8) {
+	/* High-k path: use nauty to compute canonical form + permutation */
+	return HighK_ExtractPerm(perm, Gint, _k);
+    }
+#endif
+
+    /* Original flat-table path for k<=8 */
     assert(Permutations);
     if(Permutations) {
 	int j, i32 = 0;
@@ -188,7 +249,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
-    } else return 0; // Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
+    } else return 0;
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])

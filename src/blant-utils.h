@@ -24,8 +24,8 @@ struct orbitpair_bits {
     unsigned int ordinal: 24; // ceil(log2(12005168)), maxCanon for k=10
 #elif MAX_K == 11
     unsigned int ordinal: 30; // ceil(log2(1018997864)), maxCanon for k=11
-#else
-#error sorry cannot handle MAX_K > 11 at the moment
+#elif MAX_K >= 12
+    unsigned long ordinal; // for k>=12, ordinals can be very large; use full 64-bit
 #endif
 #endif
 };

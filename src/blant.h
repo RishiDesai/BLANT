@@ -36,28 +36,37 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
 	//{0, 1, 2, 4, 11, 34, 156, 1044, 12346, 274668, 12005168, 1018997864, 165091172592};
 	//  k=1  2  3   4   5   6     7     8      9        10         11          12
 
-// This ugly code is in preparation for allowing k>8 lookup tables (using associative arrays)
+// Type selection for Gint_type (adjacency matrix integer) and Gordinal_type (canonical ordinal).
+// k=8:  28 adjacency bits -> 32-bit unsigned
+// k=9:  36 bits -> 64-bit unsigned long
+// k=10: 45 bits -> 64-bit unsigned long
+// k=11: 55 bits -> 64-bit unsigned long
+// k=12: 66 bits -> 128-bit __uint128_t
+// k=14: 91 bits -> 128-bit __uint128_t
+// k=16: 120 bits -> 128-bit __uint128_t
 #if TINY_SET_SIZE == 16
-  #if __GLIBCXX_TYPE_INT_N_0 == 128
-    typedef __uint128 Gint_type; // need 120 bits for undirected adjacency matrix for k=16...
-    #define GINT_FMT "%ull"
-    typedef __uint128 Gordinal_type; // ... and max numCanonicals = 64001015704527557894928 < 2^76... what type is that???
-    #define GORDINAL_FMT "%ull"
-    #define MAX_BINTREE_K 16
-  #elif long_width >= 120
-    typedef unsigned long Gint_type, Gordinal_type; //... numCanonicals = 64001015704527557894928 < 2^76
-    #define GINT_FMT "%lu"
-    #define GORDINAL_FMT "%ul"
-    #define MAX_BINTREE_K 16
+  #if MAX_K >= 12
+    // k>=12 needs more than 64 bits for the adjacency encoding
+    #ifdef __SIZEOF_INT128__
+      typedef unsigned __int128 Gint_type;
+      typedef unsigned long Gordinal_type;  // ordinals fit in 64 bits (on-the-fly uses hash maps)
+      // No printf format for __int128; use custom print functions
+      #define GINT_FMT "%lu"  // only used for k<=11 where Gint fits in 64 bits
+      #define GORDINAL_FMT "%lu"
+      #define GINT_IS_128BIT 1
+      #define MAX_BINTREE_K 16
+    #else
+      #error "MAX_K >= 12 requires __int128 support (GCC/Clang on 64-bit)"
+    #endif
   #elif long_width >= 55
-    typedef unsigned long Gint_type; // for k=11, need 55 bits in undirected adjacency matrix, so 64 bits sufficient...
+    typedef unsigned long Gint_type; // for k=11, need 55 bits, 64-bit long is sufficient
     #define GINT_FMT "%lu"
-    #if int_width >=30
-      typedef unsigned Gordinal_type; // ... and max numCanonicals = 1018997864 < 2^30, so 32 bits are sufficient
+    #if int_width >= 30
+      typedef unsigned Gordinal_type; // max numCanonicals for k=11 = 1018997864 < 2^30
       #define GORDINAL_FMT "%u"
     #else
       typedef unsigned long Gordinal_type;
-      #define GORDINAL_FMT "%ul"
+      #define GORDINAL_FMT "%lu"
     #endif
     #define MAX_BINTREE_K 11
   #else
@@ -65,22 +74,46 @@ extern unsigned long _known_canonical_count[]; //known number of canonicals for 
   #endif
 #elif TINY_SET_SIZE == 8
   #if int_width >= 28 && short_width >= 16
-    typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits...
+    typedef unsigned Gint_type; // at k=8, max lookup index is 2^28, so we need 32 bits
     #define GINT_FMT "%u"
-    typedef unsigned short Gordinal_type; //... and max numCanonicals is 12348 < 2^16, so 16 bits is sufficient
+    typedef unsigned short Gordinal_type; // max numCanonicals is 12348 < 2^16
     #define GORDINAL_FMT "%hu"
     #define MAX_BINTREE_K 8
   #else
     #error "cannot do TINY_SET_SIZE 8 due to no integers long enough"
   #endif
 #else
-    #error "unknwon TINY_SET_SIZE"
+    #error "unknown TINY_SET_SIZE"
+#endif
+
+#ifdef GINT_IS_128BIT
+static inline void Gint_print(FILE *fp, Gint_type v) {
+    if (v <= (Gint_type)0xFFFFFFFFFFFFFFFFULL) fprintf(fp, "%lu", (unsigned long)v);
+    else {
+        unsigned long hi = (unsigned long)(v >> 64);
+        unsigned long lo = (unsigned long)v;
+        fprintf(fp, "%lu%019lu", hi, lo);
+    }
+}
+#else
+static inline void Gint_print(FILE *fp, Gint_type v) { fprintf(fp, GINT_FMT, v); }
+#endif
+
+// High-k on-the-fly canonical labeling support
+#if HIGH_K_SUPPORTED
+  // Use nauty-based canonical labeling for k>8
+  Gordinal_type HighK_ExtractPerm(unsigned char perm[], Gint_type Gint, int k);
+  void HighK_SetGlobalCanonMaps(int k);
+  Gordinal_type HighK_LookupOrdinal(Gint_type canon_gint);
+  extern int _highK_mode; // 0 = flat table, 1 = hash+canon_list, 2 = on-the-fly
 #endif
 
 extern Gordinal_type _numCanon, _numConnectedCanon;
-extern char _canonNumEdges[MAX_CANONICALS];
+extern char *_dyn_canonNumEdges;  // dynamically allocated for k>8
+extern char _canonNumEdges[MAX_CANONICALS]; // static array for k<=8
 extern double _totalStarMotifs;
-extern Gint_type _canonList[MAX_CANONICALS];
+extern Gint_type *_dyn_canonList; // dynamically allocated for k>8
+extern Gint_type _canonList[MAX_CANONICALS]; // static array for k<=8
 
 void SetBlantDirs(void);
 double GetCPUseconds(void);
@@ -118,10 +151,13 @@ extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count;
 extern Gordinal_type *_K; // works because max numCanonicals = 12348 < 2^16, but will need to be > 16 bits for k>8.
 extern Gordinal_type L_K_Func(Gint_type Gint);
-#if DYNAMIC_CANON_MAP
-#define L_K(Gint) L_K_Func(Gint)
+#if HIGH_K_SUPPORTED
+  // For high-k, L_K dispatches to nauty-based lookup when _K is NULL (k>8)
+  #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
+#elif DYNAMIC_CANON_MAP
+  #define L_K(Gint) L_K_Func(Gint)
 #else
-#define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
+  #define L_K(Gint) (_K ? _K[Gint] : L_K_Func(Gint))
 #endif
 extern SET *_connectedCanonicals;
 
