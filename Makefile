@@ -235,13 +235,14 @@ $(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonic
 # Generators are compiled with MAX_K=11 (not 14) so Gint_type stays 64-bit unsigned long.
 # This ensures printf/scanf with %lu works correctly for k=9 and k=10.
 # k>=12 enumeration is infeasible anyway, so these generators aren't used for those values.
-GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=11
+# We use BLANT_LINK (not BLANT_BOTH) to avoid inheriting HIGH_K_FLAGS from BLANT_COMP.
+GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=11 -I src
 
 generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
-	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_LINK) $(NAUTY_INC)
 
 generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
-	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/generate-orbit-map.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/generate-orbit-map.c $(NAUTY_LINK) $(BLANT_LINK) $(NAUTY_INC)
 
 .PHONY: k9 k10
 
