@@ -236,7 +236,9 @@ $(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonic
 # This ensures printf/scanf with %lu works correctly for k=9 and k=10.
 # k>=12 enumeration is infeasible anyway, so these generators aren't used for those values.
 # We use BLANT_LINK (not BLANT_BOTH) to avoid inheriting HIGH_K_FLAGS from BLANT_COMP.
-GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=11 -I src
+# MAX_K=10: keeps Gint_type as unsigned long (64-bit) and MAX_ORBITS at 113M (fits in struct declarations).
+# MAX_K=11 would set MAX_ORBITS to 10B which overflows static array declarations in blant-pthreads.h.
+GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10 -I src
 
 generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
 	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_LINK) $(NAUTY_INC)
