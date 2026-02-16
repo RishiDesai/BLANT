@@ -232,15 +232,20 @@ $(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonic
 	@mkdir -p $(dir $@)
 	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(BLANT_COMP) $(NAUTY_INC)
 
-generate-canon-list: $(SRCDIR)/generate-canon-list.c $(OBJDIR)/libblant.o $(OBJDIR)/nauty-canonical.o $(NAUTY_LIB)
-	$(CC) -DTINY_SET_SIZE=16 -DMAX_K=14 -o $@ $(OBJDIR)/libblant.o $(OBJDIR)/nauty-canonical.o $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
+# Generators are compiled with MAX_K=11 (not 14) so Gint_type stays 64-bit unsigned long.
+# This ensures printf/scanf with %lu works correctly for k=9 and k=10.
+# k>=12 enumeration is infeasible anyway, so these generators aren't used for those values.
+GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=11
 
-generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(OBJDIR)/libblant.o $(NAUTY_LIB)
-	$(CC) -DTINY_SET_SIZE=16 -DMAX_K=14 -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/generate-orbit-map.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
+generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
+
+generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/generate-orbit-map.c $(NAUTY_LINK) $(BLANT_BOTH) $(NAUTY_INC)
 
 .PHONY: k9 k10
 
-k9: geng generate-canon-list generate-orbit-map compute-alphas-NBE compute-alphas-EBE compute-alphas-MCMC
+k9: geng generate-canon-list generate-orbit-map
 	@mkdir -p $(BLANT_CANON_DIR)
 	@echo "Generating k=9 canon_list (274668 graphs)..."
 	./geng 9 2>/dev/null | ./generate-canon-list 9 $(BLANT_CANON_DIR)/canon-ordinal-to-signature9.txt > $(BLANT_CANON_DIR)/canon_list9.txt
