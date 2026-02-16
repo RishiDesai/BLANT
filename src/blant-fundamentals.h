@@ -17,10 +17,25 @@
 
 // MAX_K is the maximum number of nodes in a graphlet that is supported by BLANT when using a fixed lookup table (as
 // opposed to one that uses associaive arrays).  Maximum value is 7 with self-loops, 8 without.
+// When HIGH_K_NAUTY is defined, MAX_K can go up to 16 using on-the-fly nauty canonical labeling.
+#ifndef MAX_K
 #define MAX_K (8-SELF_LOOPS) // NOTE that this is for BLANT; the canon_map creation codes can use different MAXK
+#endif
 
 // maximum number of entries in the canon_map (lookup table), which is 2^(k choose 2) without self-loops
-#define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
+// For k>8, the flat canon_map is too large; we use on-the-fly computation instead.
+#if MAX_K <= 8
+  #define maxBk (1U << (8*(8-1)/2 + 8*SELF_LOOPS))
+#else
+  #define maxBk 0  // flat canon_map not used for k>8
+#endif
+
+// HIGH_K_SUPPORTED: true if we can handle k>8 at runtime using nauty
+#ifdef HIGH_K_NAUTY
+  #define HIGH_K_SUPPORTED 1
+#else
+  #define HIGH_K_SUPPORTED 0
+#endif
 
 #if MAX_K <= 8
   #define MAX_CANONICALS	12346
@@ -49,8 +64,15 @@
   #else
     #define MAX_ORBITS	1956363435360UL
   #endif
+#elif MAX_K >= 13 && MAX_K <= 16
+  // k>=13: enumeration is infeasible. On-the-fly mode only.
+  // MAX_CANONICALS and MAX_ORBITS are set to small sentinel values;
+  // actual counts are discovered at runtime via hash maps.
+  #define MAX_CANONICALS	1  // sentinel: allocate minimal static arrays
+  #define MAX_ORBITS	1
+  #define ON_THE_FLY_ONLY 1  // no precomputed lookup tables available
 #else
-  #error "MAX_K too big"
+  #error "MAX_K too big (max supported is 16)"
 #endif
 
 // BLANT represents a graphlet using one-half of the adjacency matrix (since we are assuming symmetric, undirected graphs)
