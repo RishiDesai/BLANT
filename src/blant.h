@@ -145,7 +145,12 @@ extern double *_orbitDegreeVector[MAX_ORBITS], _absoluteCountMultiplier;
 #define SHAWN_AND_ZICAN 0
 extern unsigned int _Bk;
 
-extern Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K], _alphaList[MAX_CANONICALS];
+extern Gint_type _numOrbits, _alphaList[MAX_CANONICALS];
+#if HIGH_K_SUPPORTED
+extern Gint_type (*_orbitList)[MAX_K]; // dynamically allocated to avoid huge BSS
+#else
+extern Gint_type _orbitList[MAX_CANONICALS][MAX_K];
+#endif
 
 extern char **_nodeNames, _supportNodeNames;
 extern unsigned int _k, _min_edge_count;

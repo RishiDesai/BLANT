@@ -183,12 +183,18 @@ void SetGlobalCanonMaps(void)
 		    _numConnectedCanon++;
 		}
 	    }
-	    /* Copy orbit data if loaded */
+	    /* Allocate and copy orbit data if loaded.
+	     * _orbitList is a pointer in the HIGH_K build (too large for BSS
+	     * at MAX_CANONICALS=12M). Only allocate up to the actual copyN.
+	     */
 	    if (_dyn_orbitList) {
 		Gint_type copyO = _numOrbits < MAX_ORBITS ? _numOrbits : MAX_ORBITS;
-		for (i = 0; i < (int)copyN && i < MAX_CANONICALS; i++)
-		    for (int j = 0; j < _k && j < MAX_K; j++)
-			_orbitList[i][j] = _dyn_orbitList[i][j];
+		_orbitList = (Gint_type (*)[MAX_K])calloc(copyN, sizeof(Gint_type[MAX_K]));
+		if (_orbitList) {
+		    for (i = 0; i < (int)copyN; i++)
+			for (int j = 0; j < _k && j < MAX_K; j++)
+			    _orbitList[i][j] = _dyn_orbitList[i][j];
+		}
 		for (i = 0; i < (int)copyO; i++) {
 		    _orbitCanonMapping[i] = _dyn_orbitCanonMapping[i];
 		    _orbitCanonNodeMapping[i] = _dyn_orbitCanonNodeMapping[i];

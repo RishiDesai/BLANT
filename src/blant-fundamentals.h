@@ -66,10 +66,11 @@
   #endif
 #elif MAX_K >= 13 && MAX_K <= 16
   // k>=13: enumeration is infeasible for k>=12. On-the-fly mode only for those.
-  // Static arrays must be large enough for k=9 (the largest k with a precomputed
-  // canon_list). k=9 has 274668 canonicals and 2208612 orbits.
-  #define MAX_CANONICALS	274668
-  #define MAX_ORBITS	2208612
+  // Static arrays must be large enough for k=10 (12M canonicals, 113M orbits).
+  // Note: _orbitList is dynamically allocated in the HIGH_K build to avoid
+  // a 2.7 GB BSS allocation; see blant.h.
+  #define MAX_CANONICALS	12005168
+  #define MAX_ORBITS	2208612  // k=9 value; orbit data only loaded for k<=9
   #define ON_THE_FLY_ONLY 1  // no precomputed lookup tables for k>=13
 #else
   #error "MAX_K too big (max supported is 16)"
