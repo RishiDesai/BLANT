@@ -74,15 +74,18 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
         
-    for (int i = 0; i < _numCanon; i++) accums->canonNumStarMotifs[i] = -1; // initialize to -1, meaning "not yet initialized"
+    {   // Cap at MAX_CANONICALS to avoid overflowing static arrays (k=10 has 12M canonicals)
+	int initN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
+	for (int i = 0; i < initN; i++) accums->canonNumStarMotifs[i] = -1;
+    }
 
     return accums;
 }
 
 void FreeAccumulatorStruct(Accumulators *accums) {
-    assert(_numCanon <= MAX_CANONICALS);
+    int freeN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
-        for (int i=0; i<_numCanon; i++) free(accums->graphletDegreeVector[i]);
+        for (int i=0; i<freeN; i++) free(accums->graphletDegreeVector[i]);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
         for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
     if(_outputMode & communityDetection) free(accums->communityNeighbors);

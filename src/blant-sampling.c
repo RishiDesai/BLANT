@@ -352,7 +352,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
-    accums->graphletConcentration[GintOrdinal] += ocount;
+    if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
     }
     return 1.0;
@@ -699,7 +699,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	accums->graphletConcentration[GintOrdinal] += ocount;
+	if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
 
 	_g_overcount = ocount;
     }
@@ -982,7 +982,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    accums->graphletConcentration[GintOrdinal] += ocount;
+    if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
 
     // SYNTH: increment row[old], column[new] by 1
     _g_overcount = ocount;
@@ -1134,7 +1134,7 @@ double SampleGraphletSequentialEdgeChaining(GRAPH *G, SET *V, unsigned *Varray, 
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    accums->graphletConcentration[GintOrdinal] += ocount;
+    if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
 
     _g_overcount = ocount;
     return 1.0;
