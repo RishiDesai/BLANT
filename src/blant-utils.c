@@ -127,13 +127,14 @@ Gordinal_type L_K_Func(Gint_type Gint) {
 #else
 Gordinal_type L_K_Func(Gint_type Gint) {
 #if HIGH_K_SUPPORTED
-    if (_k > 8) {
-	unsigned char perm[MAX_K];
-	memset(perm, 0, sizeof(perm));
-	return HighK_ExtractPerm(perm, Gint, _k);
-    }
-#endif
+    /* HIGH_K binary: always use nauty for canonical lookup (all k).
+     * The mmap'd .bin files have wrong type sizes for the HIGH_K build. */
+    unsigned char perm[MAX_K];
+    memset(perm, 0, sizeof(perm));
+    return HighK_ExtractPerm(perm, Gint, _k);
+#else
     Apology("no L_K_Func"); return -1;
+#endif
 }
 #endif
 
@@ -146,45 +147,69 @@ void SetGlobalCanonMaps(void)
     assert(3 <= _k && _k <= MAX_K);
 
 #if HIGH_K_SUPPORTED
-    if (_k > 8) {
-	/* High-k path: use nauty-based hash map instead of flat mmap'd tables */
+    {
+	/* HIGH_K binary: use nauty-based canonical labeling for ALL k values.
+	 * The mmap'd .bin files have incompatible type sizes (written with
+	 * TINY_SET_SIZE=8, but this binary uses TINY_SET_SIZE=16), so we
+	 * always use the text-based canon_list files + nauty hash map.
+	 */
 	HighK_Init(_k);
-	_Bk = 0; /* no flat table */
+	_Bk = 0;
 	_K = NULL;
 	Permutations = NULL;
 
 	if (_highK_mode == 1) {
-	    /* Mode 1: loaded from canon_list file */
 	    _numCanon = HighK_NumCanonicals();
 	    _numOrbits = HighK_NumOrbits();
-	    /* Point static arrays at dynamic ones for compatibility */
-	    /* (code that uses _canonList[i] for small i still works) */
 	} else {
-	    /* Mode 2: on-the-fly, start with 0 known canonicals */
 	    _numCanon = 0;
 	    _numOrbits = 0;
 	}
 	_numConnectedCanon = 0;
 	_numConnectedOrbits = 0;
 	_connectedCanonicals = SetAlloc(MAX(_numCanon, 1));
-	/* Mark connected canonicals if we loaded a canon_list */
-	if (_highK_mode == 1 && _dyn_canonNumEdges) {
-	    for (i = 0; i < (int)_numCanon; i++) {
+
+	/* Copy dynamic arrays into static arrays for compatibility with
+	 * sampling/output code that references _canonList[], _orbitList[], etc.
+	 */
+	if (_highK_mode == 1 && _numCanon > 0) {
+	    Gordinal_type copyN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
+	    for (i = 0; i < (int)copyN; i++) {
+		_canonList[i] = _dyn_canonList[i];
+		_canonNumEdges[i] = _dyn_canonNumEdges[i];
+		_alphaList[i] = _dyn_alphaList ? _dyn_alphaList[i] : 1;
 		if (_dyn_canonNumEdges[i] > 0) {
 		    SetAdd(_connectedCanonicals, i);
 		    _numConnectedCanon++;
 		}
 	    }
+	    /* Copy orbit data if loaded */
+	    if (_dyn_orbitList) {
+		Gint_type copyO = _numOrbits < MAX_ORBITS ? _numOrbits : MAX_ORBITS;
+		for (i = 0; i < (int)copyN && i < MAX_CANONICALS; i++)
+		    for (int j = 0; j < _k && j < MAX_K; j++)
+			_orbitList[i][j] = _dyn_orbitList[i][j];
+		for (i = 0; i < (int)copyO; i++) {
+		    _orbitCanonMapping[i] = _dyn_orbitCanonMapping[i];
+		    _orbitCanonNodeMapping[i] = _dyn_orbitCanonNodeMapping[i];
+		    if (SetIn(_connectedCanonicals, _orbitCanonMapping[i]))
+			_connectedOrbits[_numConnectedOrbits++] = i;
+		}
+	    }
 	}
-	/* Alpha lists: set all to 1 (raw counts) for now */
+
+	/* Initialize static alpha list to 1 (raw counts) to prevent
+	 * division by zero in sampling code for on-the-fly mode. */
+	for (i = 0; i < MAX_CANONICALS; i++)
+	    _alphaList[i] = 1;
+
 	_rawCounts = true;
 	fprintf(stderr, "HighK: k=%d, numCanon=%lu, mode=%d, raw counts enabled\n",
 	    _k, (unsigned long)_numCanon, _highK_mode);
 	return;
     }
-#endif
-
-    /* Original flat-table path for k<=8 */
+#else
+    /* Original flat-table path (non-HIGH_K build, k<=8 only) */
 #if SELF_LOOPS
     _Bk = (1U <<(_k*(_k+1)/2));
 #else
@@ -207,6 +232,7 @@ void SetGlobalCanonMaps(void)
 	    _connectedOrbits[_numConnectedOrbits++] = i;
     if ((_outputMode & outputODV && _k == 4) || _k == 5)
 	orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
+#endif
 }
 
 void LoadMagicTable(void)
@@ -235,12 +261,10 @@ void LoadMagicTable(void)
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
 #if HIGH_K_SUPPORTED
-    if (_k > 8) {
-	/* High-k path: use nauty to compute canonical form + permutation */
-	return HighK_ExtractPerm(perm, Gint, _k);
-    }
-#endif
-
+    /* HIGH_K binary: always use nauty for canonical form + permutation.
+     * The mmap'd .bin files have incompatible type sizes. */
+    return HighK_ExtractPerm(perm, Gint, _k);
+#else
     /* Original flat-table path for k<=8 */
     assert(Permutations);
     if(Permutations) {
@@ -250,6 +274,7 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
     } else return 0;
+#endif
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
