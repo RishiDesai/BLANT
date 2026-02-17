@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <inttypes.h>
 #include "blant.h"
 #include "blant-highk.h"
 #include "nauty-canonical.h"
@@ -246,9 +247,20 @@ void HighK_Init(int k)
 	    fprintf(stderr, "HighK: mode 1 (hash map from canon_list) for k=%d\n", k);
 	    HighK_LoadCanonList(buf, k);
 
-	    /* Try to load orbit map */
+	    /* Load orbit map only if orbits fit in MAX_ORBITS.
+	     * k=10 has 113M orbits which exceeds MAX_ORBITS (2.2M).
+	     * Orbit data is only needed for ODV mode, not index mode.
+	     */
 	    sprintf(buf, "%s/%s/orbit_map%d.txt", _BLANT_DIR, _CANON_DIR, k);
-	    HighK_LoadOrbitMap(buf, k);
+	    FILE *ofp = fopen(buf, "r");
+	    if (ofp) {
+		unsigned long peekOrbits = 0;
+		if (fscanf(ofp, "%lu", &peekOrbits) == 1 && peekOrbits <= MAX_ORBITS)
+		    { fclose(ofp); HighK_LoadOrbitMap(buf, k); }
+		else
+		    { fclose(ofp); fprintf(stderr, "HighK: skipping orbit_map (%" PRIu64 " orbits > MAX_ORBITS=%d)\n",
+			(uint64_t)peekOrbits, MAX_ORBITS); }
+	    }
 	    return;
 	}
     }
