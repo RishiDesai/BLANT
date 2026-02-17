@@ -65,12 +65,12 @@
     #define MAX_ORBITS	1956363435360UL
   #endif
 #elif MAX_K >= 13 && MAX_K <= 16
-  // k>=13: enumeration is infeasible. On-the-fly mode only.
-  // MAX_CANONICALS and MAX_ORBITS are set to small sentinel values;
-  // actual counts are discovered at runtime via hash maps.
-  #define MAX_CANONICALS	1  // sentinel: allocate minimal static arrays
-  #define MAX_ORBITS	1
-  #define ON_THE_FLY_ONLY 1  // no precomputed lookup tables available
+  // k>=13: enumeration is infeasible for k>=12. On-the-fly mode only for those.
+  // Static arrays must be large enough for k=9 (the largest k with a precomputed
+  // canon_list). k=9 has 274668 canonicals and 2208612 orbits.
+  #define MAX_CANONICALS	274668
+  #define MAX_ORBITS	2208612
+  #define ON_THE_FLY_ONLY 1  // no precomputed lookup tables for k>=13
 #else
   #error "MAX_K too big (max supported is 16)"
 #endif
