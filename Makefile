@@ -21,10 +21,16 @@ endif
 # HIGH_K: compile with TINY_SET_SIZE=16 and MAX_K up to 14 for high-k support.
 # When HIGH_K is set, blant itself supports k>8 using on-the-fly nauty canonical labeling.
 HIGH_K_FLAGS :=
+HIGH_K_LDFLAGS :=
 NAUTY_OBJS_LIST :=
 ifdef HIGH_K
     HIGH_K_VAL ?= 14
     HIGH_K_FLAGS := -DTINY_SET_SIZE=16 -DMAX_K=$(HIGH_K_VAL) -DHIGH_K_NAUTY=1
+    ifneq (,$(filter aarch64 arm64,$(shell uname -m)))
+        AARCH64_CMODEL := -mcmodel=large -fno-pic -fno-pie
+        HIGH_K_FLAGS += $(AARCH64_CMODEL)
+        HIGH_K_LDFLAGS := -no-pie
+    endif
     NAUTY_OBJS_LIST := nauty-canonical.o
 endif
 
@@ -163,7 +169,7 @@ make-orbit-maps: $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libbl
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(BLANT_BOTH)
 
 blant: $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o $(NAUTY_OBJS)
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(NAUTY_OBJS) $(if $(HIGH_K),$(NAUTY_LINK),) $(BLANT_LINK)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(NAUTY_OBJS) $(if $(HIGH_K),$(NAUTY_LINK) $(HIGH_K_LDFLAGS),) $(BLANT_LINK)
 	./canon-upper.sh
 
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
@@ -214,7 +220,7 @@ $(NAUTY_LIB): $(NAUTY_DIR)/Makefile
 	cd $(NAUTY_DIR) && $(MAKE) nauty.a
 
 $(NAUTY_DIR)/Makefile: $(NAUTY_DIR)/configure
-	cd $(NAUTY_DIR) && ./configure --quiet
+	cd $(NAUTY_DIR) && $(if $(AARCH64_CMODEL),CFLAGS="-O4 $(AARCH64_CMODEL)",) ./configure --quiet
 
 $(NAUTY_DIR)/configure:
 	@echo "ERROR: nauty source not found in $(NAUTY_DIR)/"
