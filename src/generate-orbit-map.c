@@ -4,9 +4,7 @@
  * Reads canon_list{k}.txt, and for each canonical graphlet, uses nauty's
  * densenauty() to compute the automorphism group orbits. Outputs orbit_map{k}.txt.
  *
- * Usage: ./generate-orbit-map k < canon_maps/canon_list{k}.txt > canon_maps/orbit_map{k}.txt
- *
- * Or: ./generate-orbit-map k    (reads from canon_maps/canon_list{k}.txt by default)
+ * Usage: ./generate-orbit-map k canon_maps/orbit_map{k}.txt [canon_maps/canon_list{k}.txt]
  *
  * The orbit_map format is:
  *   <numOrbits>
@@ -25,8 +23,8 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <k> [canon_list_file]\n", argv[0]);
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <k> <output_file> [canon_list_file]\n", argv[0]);
         return 1;
     }
 
@@ -36,18 +34,30 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    const char *output_file = argv[2];
+    FILE *outfp = fopen(output_file, "w");
+    if (!outfp) {
+        fprintf(stderr, "Error: cannot open %s\n", output_file);
+        return 1;
+    }
+
     /* Open canon_list file */
-    FILE *fp;
-    if (argc >= 3) {
-        fp = fopen(argv[2], "r");
-        if (!fp) { fprintf(stderr, "Error: cannot open %s\n", argv[2]); return 1; }
+    FILE *fp = NULL;
+    if (argc >= 4) {
+        fp = fopen(argv[3], "r");
+        if (!fp) {
+            fprintf(stderr, "Error: cannot open %s\n", argv[3]);
+            fclose(outfp);
+            return 1;
+        }
     } else {
         char buf[256];
         snprintf(buf, sizeof(buf), "canon_maps/canon_list%d.txt", k);
         fp = fopen(buf, "r");
         if (!fp) {
-            /* Try reading from stdin */
-            fp = stdin;
+            fprintf(stderr, "Error: cannot open %s\n", buf);
+            fclose(outfp);
+            return 1;
         }
     }
 
@@ -91,7 +101,7 @@ int main(int argc, char *argv[])
         gints[i] = gint;
     }
 
-    if (fp != stdin) fclose(fp);
+    fclose(fp);
 
     fprintf(stderr, "Read %d canonicals for k=%d\n", numCanon, k);
 
@@ -160,14 +170,14 @@ int main(int argc, char *argv[])
     fprintf(stderr, "k=%d: %d canonicals, %d orbits\n", k, numCanon, global_orbit_count);
 
     /* Output orbit_map format */
-    printf("%d\n", global_orbit_count);
+    fprintf(outfp, "%d\n", global_orbit_count);
     for (i = 0; i < numCanon; i++) {
         int j;
         for (j = 0; j < k; j++) {
-            if (j > 0) printf(" ");
-            printf("%d", orbit_ids[i][j]);
+            if (j > 0) fprintf(outfp, " ");
+            fprintf(outfp, "%d", orbit_ids[i][j]);
         }
-        printf(" \n");
+        fprintf(outfp, " \n");
     }
 
     /* Cleanup */
@@ -180,6 +190,7 @@ int main(int argc, char *argv[])
     DYNFREE(lab, lab_sz);
     DYNFREE(ptn, ptn_sz);
     DYNFREE(orbits, orbits_sz);
+    fclose(outfp);
 
     return 0;
 }

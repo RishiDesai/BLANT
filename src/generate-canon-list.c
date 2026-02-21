@@ -4,7 +4,7 @@
  * Reads graph6 format from stdin (piped from nauty's geng), computes the canonical
  * Gint for each graph using NautyCanonical, and outputs canon_list{k}.txt format.
  *
- * Usage: ./geng k 2>/dev/null | ./generate-canon-list k [sigfile] > canon_maps/canon_list{k}.txt
+ * Usage: ./geng k 2>/dev/null | ./generate-canon-list k canon_maps/canon_list{k}.txt [sigfile]
  *
  * Compile with -DTINY_SET_SIZE=16 -DMAX_K=10 for k>8 support.
  */
@@ -92,9 +92,9 @@ static int cmp_entries(const void *a, const void *b) {
 
 int main(int argc, char *argv[])
 {
-    if (argc < 2) {
-        fprintf(stderr, "Usage: %s <k> [sigfile]\n", argv[0]);
-        fprintf(stderr, "  Reads graph6 from stdin. If sigfile is given, also writes signature file.\n");
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <k> <output_file> [sigfile]\n", argv[0]);
+        fprintf(stderr, "  Reads graph6 from stdin and writes canon_list to output_file.\n");
         return 1;
     }
 
@@ -104,7 +104,13 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    const char *sigfile = (argc >= 3) ? argv[2] : NULL;
+    const char *output_file = argv[2];
+    const char *sigfile = (argc >= 4) ? argv[3] : NULL;
+    FILE *outfp = fopen(output_file, "w");
+    if (!outfp) {
+        fprintf(stderr, "Error: cannot open %s for writing\n", output_file);
+        return 1;
+    }
 
     /* Allocate storage for entries. We'll grow as needed. */
     int capacity = 1000000;
@@ -168,7 +174,7 @@ int main(int argc, char *argv[])
     qsort(entries, count, sizeof(CanonEntry), cmp_entries);
 
     /* Output in canon_list format */
-    printf("%d\n", count);
+    fprintf(outfp, "%d\n", count);
     TINY_GRAPH *out_tg = TinyGraphAlloc(k);
     char edge_buf[2048];
     int i;
@@ -177,14 +183,15 @@ int main(int argc, char *argv[])
             /* Reconstruct TINY_GRAPH from Gint for edge list */
             Int2TinyGraph(out_tg, entries[i].gint);
             format_edge_list(edge_buf, sizeof(edge_buf), out_tg, k);
-            printf(GINT_FMT "\t%d %d\t%s\n", entries[i].gint, entries[i].connected,
+            fprintf(outfp, GINT_FMT "\t%d %d\t%s\n", entries[i].gint, entries[i].connected,
                    entries[i].num_edges, edge_buf);
         } else {
-            printf(GINT_FMT "\t%d %d\n", entries[i].gint, entries[i].connected,
+            fprintf(outfp, GINT_FMT "\t%d %d\n", entries[i].gint, entries[i].connected,
                    entries[i].num_edges);
         }
     }
     TinyGraphFree(out_tg);
+    fclose(outfp);
 
     /* Optionally write signature file */
     if (sigfile) {

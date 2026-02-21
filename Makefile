@@ -257,16 +257,16 @@ generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(NAUTY_
 k9: geng generate-canon-list generate-orbit-map
 	@mkdir -p $(BLANT_CANON_DIR)
 	@echo "Generating k=9 canon_list (274668 graphs)..."
-	./geng 9 2>/dev/null | ./generate-canon-list 9 $(BLANT_CANON_DIR)/canon-ordinal-to-signature9.txt > $(BLANT_CANON_DIR)/canon_list9.txt
+	./geng 9 2>/dev/null | ./generate-canon-list 9 $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature9.txt
 	@echo "Generating k=9 orbit_map..."
-	./generate-orbit-map 9 $(BLANT_CANON_DIR)/canon_list9.txt > $(BLANT_CANON_DIR)/orbit_map9.txt
+	./generate-orbit-map 9 $(BLANT_CANON_DIR)/orbit_map9.txt $(BLANT_CANON_DIR)/canon_list9.txt
 
 k10: geng generate-canon-list generate-orbit-map
 	@mkdir -p $(BLANT_CANON_DIR)
 	@echo "Generating k=10 canon_list (12005168 graphs, may take several minutes)..."
-	./geng 10 2>/dev/null | ./generate-canon-list 10 $(BLANT_CANON_DIR)/canon-ordinal-to-signature10.txt > $(BLANT_CANON_DIR)/canon_list10.txt
+	./geng 10 2>/dev/null | ./generate-canon-list 10 $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature10.txt
 	@echo "Generating k=10 orbit_map..."
-	./generate-orbit-map 10 $(BLANT_CANON_DIR)/canon_list10.txt > $(BLANT_CANON_DIR)/orbit_map10.txt
+	./generate-orbit-map 10 $(BLANT_CANON_DIR)/orbit_map10.txt $(BLANT_CANON_DIR)/canon_list10.txt
 
 ### Object Files/Prereqs ###
 
