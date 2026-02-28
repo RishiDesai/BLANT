@@ -325,15 +325,17 @@ bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAP
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
     // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
-    if(accums->canonNumStarMotifs[GintOrdinal] == -1) { // initialize this graphlet's star motif count
-	int i;
-	accums->canonNumStarMotifs[GintOrdinal] = 0;
-	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+    // Guard fixed-size array accesses: for k>=10, ordinals can exceed MAX_CANONICALS.
+    if(GintOrdinal < MAX_CANONICALS) {
+	if(accums->canonNumStarMotifs[GintOrdinal] == -1) {
+	    int i;
+	    accums->canonNumStarMotifs[GintOrdinal] = 0;
+	    for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+	}
+	accums->graphletCount[GintOrdinal]+=weight;
+	++accums->batchRawCount[GintOrdinal];
     }
-    // ALWAYS count the frequencies; we may normalize the counts later using absolute graphlet or motif counts.
-    accums->graphletCount[GintOrdinal]+=weight;
-    // Use thread-local batch counters to avoid race conditions
-    ++accums->batchRawCount[GintOrdinal]; ++accums->batchRawTotalSamples;
+    ++accums->batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
     if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {
