@@ -26,6 +26,9 @@ NAUTY_OBJS_LIST :=
 ifdef HIGH_K
     HIGH_K_VAL ?= 14
     HIGH_K_FLAGS := -DTINY_SET_SIZE=16 -DMAX_K=$(HIGH_K_VAL) -DHIGH_K_NAUTY=1
+    ifneq (,$(filter x86_64,$(shell uname -m)))
+        HIGH_K_FLAGS += -mcmodel=medium
+    endif
     ifneq (,$(filter aarch64 arm64,$(shell uname -m)))
         AARCH64_CMODEL := -mcmodel=large -fno-pic -fno-pie
         HIGH_K_FLAGS += $(AARCH64_CMODEL)
