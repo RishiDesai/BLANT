@@ -18,6 +18,11 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
+HIGH_K_CMODEL_FLAGS :=
+ifdef HIGH_K
+    HIGH_K_CMODEL_FLAGS += -mcmodel=medium
+endif
+
 # to make the prediction version that agrees with the regression tests
 ifdef PRED_REG
     PRED_REG_OPT := -DINTERNAL_DEG_WEIGHTS=0 -DDEG_ORDER_MUST_AGREE=1
@@ -46,8 +51,8 @@ CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -W
 CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
 
 # Include path: src/ contains all replacement headers for libwayne
-BLANT_COMP=-I src $(SPEED)
-BLANT_LINK=-lm -lpthread $(STACKSIZE) $(SPEED)
+BLANT_COMP=-I src $(SPEED) $(HIGH_K_CMODEL_FLAGS)
+BLANT_LINK=-lm -lpthread $(STACKSIZE) $(SPEED) $(HIGH_K_CMODEL_FLAGS)
 BLANT_BOTH=$(BLANT_COMP) $(BLANT_LINK)
 
 # Name of BLANT source directory
