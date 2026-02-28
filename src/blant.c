@@ -101,7 +101,12 @@ int *_componentSize;
 int *_startNodes, _numStartNodes;
 SET *_startNodeSet;
 
-Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
+Gint_type _numOrbits;
+#if HIGH_K_SUPPORTED
+Gint_type (*_orbitList)[MAX_K] = NULL; // dynamically allocated for HIGH_K
+#else
+Gint_type _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
+#endif
 Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 int *_whichComponent;
