@@ -18,6 +18,25 @@ ifdef NO7
     EIGHT := # can't have 8 without 7
 endif
 
+# HIGH_K: compile with TINY_SET_SIZE=16 and MAX_K up to 14 for high-k support.
+# When HIGH_K is set, blant itself supports k>8 using on-the-fly nauty canonical labeling.
+HIGH_K_FLAGS :=
+HIGH_K_LDFLAGS :=
+NAUTY_OBJS_LIST :=
+ifdef HIGH_K
+    HIGH_K_VAL ?= 14
+    HIGH_K_FLAGS := -DTINY_SET_SIZE=16 -DMAX_K=$(HIGH_K_VAL) -DHIGH_K_NAUTY=1
+    ifneq (,$(filter x86_64,$(shell uname -m)))
+        HIGH_K_FLAGS += -mcmodel=medium
+    endif
+    ifneq (,$(filter aarch64 arm64,$(shell uname -m)))
+        AARCH64_CMODEL := -mcmodel=large -fno-pic -fno-pie
+        HIGH_K_FLAGS += $(AARCH64_CMODEL)
+        HIGH_K_LDFLAGS := -no-pie
+    endif
+    NAUTY_OBJS_LIST := nauty-canonical.o
+endif
+
 # to make the prediction version that agrees with the regression tests
 ifdef PRED_REG
     PRED_REG_OPT := -DINTERNAL_DEG_WEIGHTS=0 -DDEG_ORDER_MUST_AGREE=1
@@ -46,15 +65,21 @@ CC=$(GCC) $(SPEED) $(NDEBUG) -Wno-misleading-indentation -Wno-unused-function -W
 CXX=g++$(GXX_VER) $(SPEED) $(NDEBUG)
 
 # Include path: src/ contains all replacement headers for libwayne
-BLANT_COMP=-I src $(SPEED)
+BLANT_COMP=-I src $(HIGH_K_FLAGS) $(SPEED)
 BLANT_LINK=-lm -lpthread $(STACKSIZE) $(SPEED)
 BLANT_BOTH=$(BLANT_COMP) $(BLANT_LINK)
+
+# Nauty library paths (built from source in third_party/)
+NAUTY_DIR = third_party/nauty2_8_9
+NAUTY_LIB = $(NAUTY_DIR)/nauty.a
+NAUTY_INC = -I $(NAUTY_DIR)
+NAUTY_LINK = $(NAUTY_LIB)
 
 # Name of BLANT source directory
 SRCDIR = src
 
 # All the headers
-RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h blant-pthreads.h blant-fatal.h blant-utils-base.h blant-bitset.h blant-graph.h blant-graphlet.h blant-queue.h blant-multiset.h blant-heap.h blant-combin.h blant-stats.h blant-sim-anneal.h
+RAW_HEADERS = blant-fundamentals.h blant.h blant-output.h blant-predict.h blant-sampling.h blant-utils.h blant-window.h importance.h odv.h uthash.h blant-pthreads.h blant-fatal.h blant-utils-base.h blant-bitset.h blant-graph.h blant-graphlet.h blant-queue.h blant-multiset.h blant-heap.h blant-combin.h blant-stats.h blant-sim-anneal.h nauty-canonical.h blant-highk.h
 BLANT_HEADERS = $(addprefix $(SRCDIR)/, $(RAW_HEADERS))
 
 # Put all c files in SRCDIR below.
@@ -67,10 +92,12 @@ BLANT_SRCS = blant.c \
 			 blant-synth-graph.c \
 			 importance.c \
 			 odv.c \
-			 blant-pthreads.c
+			 blant-pthreads.c \
+			 $(if $(HIGH_K),blant-highk.c,)
 
 OBJDIR = _objs
 BLANT_CANON_DIR = canon_maps
+NAUTY_OBJS = $(addprefix $(OBJDIR)/, $(NAUTY_OBJS_LIST))
 OBJS = $(addprefix $(OBJDIR)/, $(BLANT_SRCS:.c=.o))
 
 ifneq ("$(wildcard $(SRCDIR)/EdgePredict/blant-predict.c)","")
@@ -144,15 +171,15 @@ slow-canon-maps: $(SRCDIR)/slow-canon-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libbl
 make-orbit-maps: $(SRCDIR)/make-orbit-maps.c | $(SRCDIR)/blant.h $(OBJDIR)/libblant.o
 	$(CC) -o $@ $(OBJDIR)/libblant.o $(SRCDIR)/make-orbit-maps.c $(BLANT_BOTH)
 
-blant: $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o
-	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(BLANT_LINK)
+blant: $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o $(NAUTY_OBJS)
+	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(NAUTY_OBJS) $(if $(HIGH_K),$(NAUTY_LINK) $(HIGH_K_LDFLAGS),) $(BLANT_LINK)
 	./canon-upper.sh
 
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -mtune=generic
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	@mkdir -p $(dir $@)
-	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(BLANT_COMP)
+	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(BLANT_COMP) $(if $(HIGH_K),$(NAUTY_INC),)
 
 synthetic: $(SRCDIR)/synthetic.c $(SRCDIR)/syntheticDS.h $(SRCDIR)/syntheticDS.c | $(OBJDIR)/libblant.o
 	$(CC) -c $(SRCDIR)/syntheticDS.c $(SRCDIR)/synthetic.c $(BLANT_COMP)
@@ -190,6 +217,60 @@ cluster-similarity-graph: src/cluster-similarity-graph.c
 $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
 	if [ -f $(SRCDIR)/EdgePredict/Makefile ]; then (CC="$(CC) $(PRED_REG_OPT) $(BLANT_COMP)"; export CC; OBJDIR="$(OBJDIR)"; export OBJDIR; cd $(SRCDIR)/EdgePredict && $(MAKE)); else $(CC) $(PRED_REG_OPT) -c -o $@ $(SRCDIR)/blant-predict.c $(BLANT_BOTH); fi
 
+### Nauty Library ###
+
+$(NAUTY_LIB): $(NAUTY_DIR)/Makefile
+	cd $(NAUTY_DIR) && $(MAKE) nauty.a
+
+$(NAUTY_DIR)/Makefile: $(NAUTY_DIR)/configure
+	cd $(NAUTY_DIR) && $(if $(AARCH64_CMODEL),CFLAGS="-O4 $(AARCH64_CMODEL)",) ./configure --quiet
+
+$(NAUTY_DIR)/configure:
+	@echo "ERROR: nauty source not found in $(NAUTY_DIR)/"
+	@echo "Download nauty 2.8.9 from https://pallini.di.uniroma1.it/nauty2_8_9.tar.gz"
+	@echo "and extract into third_party/"
+	@false
+
+geng: $(NAUTY_LIB)
+	cd $(NAUTY_DIR) && $(MAKE) geng
+	ln -sf $(NAUTY_DIR)/geng $@
+
+### High-k Tools (require nauty) ###
+
+$(OBJDIR)/nauty-canonical.o: $(SRCDIR)/nauty-canonical.c $(SRCDIR)/nauty-canonical.h $(NAUTY_LIB)
+	@mkdir -p $(dir $@)
+	$(CC) $(BLANT_FAST_FLAGS) -c -o $@ $< $(BLANT_COMP) $(NAUTY_INC)
+
+# Generators are compiled with MAX_K=11 (not 14) so Gint_type stays 64-bit unsigned long.
+# This ensures printf/scanf with %lu works correctly for k=9 and k=10.
+# k>=12 enumeration is infeasible anyway, so these generators aren't used for those values.
+# We use BLANT_LINK (not BLANT_BOTH) to avoid inheriting HIGH_K_FLAGS from BLANT_COMP.
+# MAX_K=10: keeps Gint_type as unsigned long (64-bit) and MAX_ORBITS at 113M (fits in struct declarations).
+# MAX_K=11 would set MAX_ORBITS to 10B which overflows static array declarations in blant-pthreads.h.
+GENERATOR_K_FLAGS = -DTINY_SET_SIZE=16 -DMAX_K=10 -I src
+
+generate-canon-list: $(SRCDIR)/generate-canon-list.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/nauty-canonical.c $(SRCDIR)/generate-canon-list.c $(NAUTY_LINK) $(BLANT_LINK) $(NAUTY_INC)
+
+generate-orbit-map: $(SRCDIR)/generate-orbit-map.c $(SRCDIR)/libblant.c $(NAUTY_LIB)
+	$(CC) $(GENERATOR_K_FLAGS) -o $@ $(SRCDIR)/libblant.c $(SRCDIR)/generate-orbit-map.c $(NAUTY_LINK) $(BLANT_LINK) $(NAUTY_INC)
+
+.PHONY: k9 k10
+
+k9: geng generate-canon-list generate-orbit-map
+	@mkdir -p $(BLANT_CANON_DIR)
+	@echo "Generating k=9 canon_list (274668 graphs)..."
+	./geng 9 2>/dev/null | ./generate-canon-list 9 $(BLANT_CANON_DIR)/canon_list9.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature9.txt
+	@echo "Generating k=9 orbit_map..."
+	./generate-orbit-map 9 $(BLANT_CANON_DIR)/orbit_map9.txt $(BLANT_CANON_DIR)/canon_list9.txt
+
+k10: geng generate-canon-list generate-orbit-map
+	@mkdir -p $(BLANT_CANON_DIR)
+	@echo "Generating k=10 canon_list (12005168 graphs, may take several minutes)..."
+	./geng 10 2>/dev/null | ./generate-canon-list 10 $(BLANT_CANON_DIR)/canon_list10.txt $(BLANT_CANON_DIR)/canon-ordinal-to-signature10.txt
+	@echo "Generating k=10 orbit_map..."
+	./generate-orbit-map 10 $(BLANT_CANON_DIR)/orbit_map10.txt $(BLANT_CANON_DIR)/canon_list10.txt
+
 ### Object Files/Prereqs ###
 
 $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
@@ -198,7 +279,7 @@ $(OBJDIR)/convert.o: $(SRCDIR)/convert.cpp
 
 $(OBJDIR)/libblant.o: $(SRCDIR)/libblant.c
 	@mkdir -p $(dir $@)
-	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/libblant.c -o $@ $(BLANT_COMP)
+	$(CC) $(BLANT_FAST_FLAGS) -c $(SRCDIR)/libblant.c -o $@ $(BLANT_COMP) $(if $(HIGH_K),$(NAUTY_INC),)
 
 $(OBJDIR)/makeEHD.o: $(SRCDIR)/makeEHD.c | $(OBJDIR)/libblant.o
 	@mkdir -p $(dir $@)
@@ -266,7 +347,7 @@ $(BLANT_CANON_DIR)/check_maps: test_stamp
 ### Cleaning ###
 
 clean:
-	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode
+	@/bin/rm -f *.[oa] blant create-bin-data3 create-bin-data4 create-bin-data5 create-bin-data6 create-bin-data7 create-bin-data8 canon-sift fast-canon-map make-orbit-maps compute-alphas-MCMC-slow compute-alphas-MCMC compute-alphas-NBE compute-alphas-EBE make-orca-jesse-blant-table Draw/graphette2dot blant-sanity make-subcanon-maps test_stamp $(BLANT_CANON_DIR)/check_maps $(BLANT_CANON_DIR)/test_index_mode generate-canon-list generate-orbit-map geng
 	@/bin/rm -rf $(OBJDIR)/*
 
 realclean:
