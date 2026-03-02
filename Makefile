@@ -74,6 +74,8 @@ NAUTY_DIR = third_party/nauty2_8_9
 NAUTY_LIB = $(NAUTY_DIR)/nauty.a
 NAUTY_INC = -I $(NAUTY_DIR)
 NAUTY_LINK = $(NAUTY_LIB)
+NAUTY_CFLAGS := -O3 -g0
+NAUTY_AARCH64_CFLAGS := -O3 -g0 -mcmodel=large -fno-pic -fno-pie
 
 # Name of BLANT source directory
 SRCDIR = src
@@ -223,7 +225,9 @@ $(NAUTY_LIB): $(NAUTY_DIR)/Makefile
 	cd $(NAUTY_DIR) && $(MAKE) nauty.a
 
 $(NAUTY_DIR)/Makefile: $(NAUTY_DIR)/configure
-	cd $(NAUTY_DIR) && $(if $(AARCH64_CMODEL),CFLAGS="-O4 $(AARCH64_CMODEL)",) ./configure --quiet
+	cd $(NAUTY_DIR) && env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
+		$(if $(AARCH64_CMODEL),CFLAGS="$(NAUTY_AARCH64_CFLAGS)" LDFLAGS="-no-pie",CFLAGS="$(NAUTY_CFLAGS)") \
+		./configure --quiet
 
 $(NAUTY_DIR)/configure:
 	@echo "ERROR: nauty source not found in $(NAUTY_DIR)/"
