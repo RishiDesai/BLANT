@@ -28,18 +28,31 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     }
 
     memset(accums, 0, aligned_size); // zero out everything including padding
-    
+    accums->numCanon = (size_t)_numCanon;
+    accums->numOrbits = (size_t)_numOrbits;
+
+    if (accums->numOrbits > MAX_ORBITS) {
+        Fatal("Internal error: numOrbits=%zu exceeds MAX_ORBITS=%d", accums->numOrbits, MAX_ORBITS);
+    }
+
+    if (accums->numCanon > 0) {
+        accums->graphletCount = (double *)calloc(accums->numCanon, sizeof(double));
+        accums->graphletConcentration = (double *)calloc(accums->numCanon, sizeof(double));
+        accums->canonNumStarMotifs = (double *)calloc(accums->numCanon, sizeof(double));
+        accums->batchRawCount = (unsigned long *)calloc(accums->numCanon, sizeof(unsigned long));
+        if (!accums->graphletCount || !accums->graphletConcentration || !accums->canonNumStarMotifs || !accums->batchRawCount) {
+            Fatal("Failed to allocate Accumulators canonical arrays for %zu canonicals", accums->numCanon);
+        }
+    }
+
     // Initialize batch counters
     accums->batchRawTotalSamples = 0;
-    for (int i = 0; i < MAX_CANONICALS; i++) {
-        accums->batchRawCount[i] = 0;
-    }
-    
+
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        accums->graphletDegreeVector = malloc(_numCanon * sizeof(double*));
+        accums->graphletDegreeVector = malloc(accums->numCanon * sizeof(double*));
         if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
-        for(int i = 0; i < _numCanon; i++) {
+        for(size_t i = 0; i < accums->numCanon; i++) {
             size_t bytes = G->n * sizeof(double);
             // Ensure that size is a multiple of CACHE_LINE_SIZE
             if (bytes % CACHE_LINE_SIZE != 0) {
@@ -56,7 +69,7 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     // initialize ODV vectors if needed
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
-        for(int i=0; i<_numOrbits; i++) {
+        for(size_t i = 0; i < accums->numOrbits; i++) {
             size_t bytes = G->n * sizeof(double);
             // Ensure that size is a multiple of CACHE_LINE_SIZE
             if (bytes % CACHE_LINE_SIZE != 0) {
@@ -73,22 +86,23 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     // initialize communityNeighbors if needed
     if(_outputMode & communityDetection) accums->communityNeighbors = (SET***) calloc(G->n, sizeof(SET**));
-        
-    {   // Cap at MAX_CANONICALS to avoid overflowing static arrays (k=10 has 12M canonicals)
-	int initN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
-	for (int i = 0; i < initN; i++) accums->canonNumStarMotifs[i] = -1;
-    }
+
+    for (size_t i = 0; i < accums->numCanon; i++) accums->canonNumStarMotifs[i] = -1;
 
     return accums;
 }
 
 void FreeAccumulatorStruct(Accumulators *accums) {
-    int freeN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
-        for (int i=0; i<freeN; i++) free(accums->graphletDegreeVector[i]);
+        for (size_t i = 0; i < accums->numCanon; i++) free(accums->graphletDegreeVector[i]);
+    free(accums->graphletDegreeVector);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))
-        for(int i=0; i<_numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
+        for(size_t i = 0; i < accums->numOrbits; i++) if (accums->orbitDegreeVector[i] != NULL) free(accums->orbitDegreeVector[i]);
     if(_outputMode & communityDetection) free(accums->communityNeighbors);
+    free(accums->graphletCount);
+    free(accums->graphletConcentration);
+    free(accums->canonNumStarMotifs);
+    free(accums->batchRawCount);
     free(accums);
 }
 
@@ -144,7 +158,15 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
     // wait for each thread to finish execution, then accumulate data from the thread into the passed accumulator
     for (unsigned t = 0; t < numThreads; t++) {
         pthread_join(threads[t], NULL);
-        for (int i = 0; i < _numCanon; i++) {
+        if (threadData[t].accums->numCanon != (size_t)_numCanon) {
+            Fatal("Internal error: thread accumulator canonical size mismatch: got %zu expected %zu",
+                  threadData[t].accums->numCanon, (size_t)_numCanon);
+        }
+        if (threadData[t].accums->numOrbits != (size_t)_numOrbits) {
+            Fatal("Internal error: thread accumulator orbit size mismatch: got %zu expected %zu",
+                  threadData[t].accums->numOrbits, (size_t)_numOrbits);
+        }
+        for (size_t i = 0; i < threadData[t].accums->numCanon; i++) {
             _graphletConcentration[i] += threadData[t].accums->graphletConcentration[i];
             _graphletCount[i] += threadData[t].accums->graphletCount[i];
             if (_canonNumStarMotifs[i] == -1) _canonNumStarMotifs[i] = threadData[t].accums->canonNumStarMotifs[i];
@@ -155,14 +177,14 @@ void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int nu
         _batchRawTotalSamples += threadData[t].accums->batchRawTotalSamples;
 
         if (_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o')) {
-            for(int i=0; i<_numOrbits; i++) {
+            for(size_t i = 0; i < threadData[t].accums->numOrbits; i++) {
             for(int j=0; j<G->n; j++) {
                 _orbitDegreeVector[i][j] += threadData[t].accums->orbitDegreeVector[i][j];
             }
             }
         }
         if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-            for(int i=0; i<_numCanon; i++) {
+            for(size_t i = 0; i < threadData[t].accums->numCanon; i++) {
             for(int j=0; j<G->n; j++) {
                 _graphletDegreeVector[i][j] += threadData[t].accums->graphletDegreeVector[i][j];
             }

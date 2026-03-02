@@ -5,6 +5,7 @@
 #include "blant-predict.h"
 #include "blant-utils.h"
 #include "blant-sampling.h"
+#include "blant-highk.h"
 #include "combin.h"
 #include "tinygraph.h"
 
@@ -103,6 +104,15 @@ char *PrintOrdinal(char buf[], Gordinal_type GintOrdinal)
 //#define MCMC_MAX_HASH 8589934591UL // 2^33-9, according to https://www.dcode.fr/closest-prime-number; about 1GB
 
 static GRAPH *_G; // local copy of GRAPH *G
+
+static inline void FatalIfInvalidOrdinal(Gordinal_type GintOrdinal, int k)
+{
+    size_t numCanonBound = (_highK_mode == 2) ? (size_t)HighK_NumCanonicals() : (size_t)_numCanon;
+    if (GintOrdinal == (Gordinal_type)-1 || GintOrdinal >= (Gordinal_type)numCanonBound) {
+        Fatal("Invalid canonical ordinal for k=%d: ordinal=%zu (numCanonBound=%zu, highK_mode=%d)",
+              k, (size_t)GintOrdinal, numCanonBound, _highK_mode);
+    }
+}
 
 // NOTE WE DO NOT CHECK EDGES. So if you call it with the same node set but as a motif, it'll (incorrectly) return TRUE
 // Now THREAD-SAFE: uses _Thread_local storage instead of static shared state
@@ -291,6 +301,10 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 #else
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
 #endif
+    if (accums->numCanon > 0 && (size_t)GintOrdinal >= accums->numCanon) {
+        Fatal("Accumulator graphlet-degree index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
+              k, (size_t)GintOrdinal, accums->numCanon);
+    }
     for(c=0;c<k;c++)
     {
         // FIXME: This could be made more memory efficient by indexing ONLY the CONNECTED canonicals, but...
@@ -320,22 +334,26 @@ bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAP
     Gint_type Gint = TinyGraph2Int(g,k);
     unsigned char perm[MAX_K];
     Gordinal_type GintOrdinal=ExtractPerm(perm, Gint), j;
+    FatalIfInvalidOrdinal(GintOrdinal, k);
 
 #if PARANOID_ASSERTS
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
     // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
-    // Guard fixed-size array accesses: for k>=10, ordinals can exceed MAX_CANONICALS.
-    if(GintOrdinal < MAX_CANONICALS) {
-	if(accums->canonNumStarMotifs[GintOrdinal] == -1) {
-	    int i;
-	    accums->canonNumStarMotifs[GintOrdinal] = 0;
-	    for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
-	}
-	accums->graphletCount[GintOrdinal]+=weight;
-	++accums->batchRawCount[GintOrdinal];
+    if (accums->numCanon > 0 && accums->graphletCount != NULL && accums->canonNumStarMotifs != NULL && accums->batchRawCount != NULL) {
+        if ((size_t)GintOrdinal >= accums->numCanon) {
+            Fatal("Accumulator canonical index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
+                  k, (size_t)GintOrdinal, accums->numCanon);
+        }
+        if(accums->canonNumStarMotifs[GintOrdinal] == -1) {
+	int i;
+	accums->canonNumStarMotifs[GintOrdinal] = 0;
+	for(i=0; i<_k; i++) if(TinyGraphDegree(g,i) == k-1) ++accums->canonNumStarMotifs[GintOrdinal];
+        }
+        accums->graphletCount[GintOrdinal]+=weight;
+        ++accums->batchRawCount[GintOrdinal];
     }
-    ++accums->batchRawTotalSamples;
+    if (accums->numCanon > 0 && accums->batchRawCount != NULL) ++accums->batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
     if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {
