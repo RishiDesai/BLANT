@@ -714,6 +714,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         _sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION ||
         _sampleMethod == SAMPLE_MCMC
     ) {
+#if HIGH_K_SUPPORTED
+        // HIGH_K path has shown environment-dependent instability in threaded mode.
+        // Keep sampling single-threaded for reproducibility across runtimes.
+        if (_numThreads > 1) {
+            Note("HIGH_K build forcing -t1 for stability across environments.");
+            _numThreads = 1;
+        }
+#endif
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (_numThreads > 1) {
             bool mcmcThreadSafe = false;
