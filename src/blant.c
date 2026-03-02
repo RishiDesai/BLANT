@@ -788,11 +788,13 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
                 int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
 
-                STAT *sTotal[MAX_CANONICALS];
+                STAT **sTotal = NULL;
 		if(_desiredPrec && _quiet<2) {
+                    sTotal = calloc(_numCanon, sizeof(*sTotal));
+                    if (!sTotal) Fatal("Failed to allocate precision stats array for %zu canonicals", (size_t)_numCanon);
 		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
-                for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
+                    for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
 				
 				if (_numThreads == 1) {
 					_seed = _seed + batchCounter;
@@ -890,6 +892,8 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 else {
                     if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", batchCounter);
                 }
+                for(i=0; i<_numCanon; i++) if(sTotal[i]) StatFree(sTotal[i]);
+                free(sTotal);
             } else {
                 Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }

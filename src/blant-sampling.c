@@ -8,6 +8,7 @@
 #include "queue.h"
 #include "multisets.h"
 #include "blant-output.h"
+#include "blant-highk.h"
 
 
 #if SYNTHETIC
@@ -23,6 +24,15 @@ unsigned _MCMC_L;
 unsigned long int _acceptRejectTotalTries;
 GRAPH *_EDGE_COVER_G;
 double _g_overcount; // MCMC overcount, needs to be global for simplicity (ETHAN)
+
+static inline void FatalIfInvalidOrdinal(Gordinal_type GintOrdinal, int k)
+{
+    size_t numCanonBound = (_highK_mode == 2) ? (size_t)HighK_NumCanonicals() : (size_t)_numCanon;
+    if (GintOrdinal == (Gordinal_type)-1 || GintOrdinal >= (Gordinal_type)numCanonBound) {
+        Fatal("Invalid canonical ordinal for k=%d: ordinal=%zu (numCanonBound=%zu, highK_mode=%d)",
+              k, (size_t)GintOrdinal, numCanonBound, _highK_mode);
+    }
+}
 
 // Update the most recent d-graphlet to a random neighbor of it
 int *MCMCGetNeighbor(int *Xcurrent, GRAPH *G)
@@ -338,6 +348,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	unsigned char perm[MAX_K];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+	FatalIfInvalidOrdinal(GintOrdinal, k);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
@@ -352,7 +363,13 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
-    if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
+	if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
+	    if ((size_t)GintOrdinal >= accums->numCanon) {
+		Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
+		      k, (size_t)GintOrdinal, accums->numCanon);
+	    }
+	    accums->graphletConcentration[GintOrdinal] += ocount;
+	}
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
     }
     return 1.0;
@@ -685,6 +702,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	unsigned char perm[MAX_K];
 	memset(perm, 0, k);
 	Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+	FatalIfInvalidOrdinal(GintOrdinal, k);
 	double ocount = (double)multiplier/((double)_alphaList[GintOrdinal]);
 	if (_outputMode & outputODV) {
 	    for (j = 0; j < k; j++) {
@@ -699,7 +717,13 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
+	if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
+	    if ((size_t)GintOrdinal >= accums->numCanon) {
+		Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
+		      k, (size_t)GintOrdinal, accums->numCanon);
+	    }
+	    accums->graphletConcentration[GintOrdinal] += ocount;
+	}
 
 	_g_overcount = ocount;
     }
@@ -943,6 +967,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     unsigned char perm[MAX_K];
     memset(perm, 0, k);
     Gordinal_type GintOrdinal = ExtractPerm(perm, Gint);
+    FatalIfInvalidOrdinal(GintOrdinal, k);
 	// SYNTH: this is where the new ordinal graphlet ID is computed
 #if SYNTHETIC
     static int prevOrdinal;
@@ -982,7 +1007,13 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    if(GintOrdinal < MAX_CANONICALS) accums->graphletConcentration[GintOrdinal] += ocount;
+    if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
+	if ((size_t)GintOrdinal >= accums->numCanon) {
+	    Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
+		  k, (size_t)GintOrdinal, accums->numCanon);
+	}
+	accums->graphletConcentration[GintOrdinal] += ocount;
+    }
 
     // SYNTH: increment row[old], column[new] by 1
     _g_overcount = ocount;
