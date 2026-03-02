@@ -177,6 +177,8 @@ blant: $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o $(NAUTY_OBJS)
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(NAUTY_OBJS) $(if $(HIGH_K),$(NAUTY_LINK) $(HIGH_K_LDFLAGS),) $(BLANT_LINK)
 	./canon-upper.sh
 
+# Use portable flags for distributed build/run environments (e.g., modal).
+# Avoid -march=native because build and runtime machines may differ.
 BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -mtune=generic
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
@@ -222,7 +224,7 @@ $(OBJDIR)/blant-predict.o: $(BLANT_PREDICT_SRC)
 ### Nauty Library ###
 
 $(NAUTY_LIB): $(NAUTY_DIR)/Makefile
-	cd $(NAUTY_DIR) && $(MAKE) nauty.a
+	cd $(NAUTY_DIR) && $(MAKE) CFLAGS="$(if $(AARCH64_CMODEL),$(NAUTY_AARCH64_CFLAGS),$(NAUTY_CFLAGS))" nauty.a
 
 $(NAUTY_DIR)/Makefile: $(NAUTY_DIR)/configure
 	cd $(NAUTY_DIR) && env -u CFLAGS -u CXXFLAGS -u CPPFLAGS -u LDFLAGS \
@@ -236,7 +238,7 @@ $(NAUTY_DIR)/configure:
 	@false
 
 geng: $(NAUTY_LIB)
-	cd $(NAUTY_DIR) && $(MAKE) geng
+	cd $(NAUTY_DIR) && $(MAKE) CFLAGS="$(if $(AARCH64_CMODEL),$(NAUTY_AARCH64_CFLAGS),$(NAUTY_CFLAGS))" geng
 	ln -sf $(NAUTY_DIR)/geng $@
 
 ### High-k Tools (require nauty) ###
