@@ -363,11 +363,7 @@ double SampleGraphletNodeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
-	    if ((size_t)GintOrdinal >= accums->numCanon) {
-		Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
-		      k, (size_t)GintOrdinal, accums->numCanon);
-	    }
+	if (EnsureAccumulatorCanonCapacity(accums, (size_t)GintOrdinal + 1)) {
 	    accums->graphletConcentration[GintOrdinal] += ocount;
 	}
 	_g_overcount = ocount; // ETHAN: this is global because it's used elsewhere... should be in accums
@@ -717,11 +713,7 @@ double SampleGraphletEdgeBasedExpansion(GRAPH *G, SET *V, unsigned *Varray, int 
 	if(ocount < 0) {
 	    Warning("ocount (%g) is less than 0\n", ocount);
 	}
-	if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
-	    if ((size_t)GintOrdinal >= accums->numCanon) {
-		Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
-		      k, (size_t)GintOrdinal, accums->numCanon);
-	    }
+	if (EnsureAccumulatorCanonCapacity(accums, (size_t)GintOrdinal + 1)) {
 	    accums->graphletConcentration[GintOrdinal] += ocount;
 	}
 
@@ -1007,11 +999,7 @@ double SampleGraphletMCMC(GRAPH *G, SET *V, unsigned *Varray, int k, int whichCC
     if(ocount < 0) {
 	Warning("ocount (%g) is less than 0\n", ocount);
     }
-    if (accums->numCanon > 0 && accums->graphletConcentration != NULL) {
-	if ((size_t)GintOrdinal >= accums->numCanon) {
-	    Fatal("Accumulator concentration index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
-		  k, (size_t)GintOrdinal, accums->numCanon);
-	}
+    if (EnsureAccumulatorCanonCapacity(accums, (size_t)GintOrdinal + 1)) {
 	accums->graphletConcentration[GintOrdinal] += ocount;
     }
 

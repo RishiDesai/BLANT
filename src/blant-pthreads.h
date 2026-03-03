@@ -24,6 +24,8 @@ typedef struct {
     unsigned long batchRawTotalSamples;
     size_t numCanon;
     size_t numOrbits;
+    size_t graphNumNodes;
+    int canonicalTrackingEnabled;
 } Accumulators;
 
 // ThreadData structure (now after all required types are defined)
@@ -44,6 +46,7 @@ typedef struct ThreadData {
 
 // Function declarations
 Accumulators* InitializeAccumulatorStruct(GRAPH* G);
+int EnsureAccumulatorCanonCapacity(Accumulators *accums, size_t minCanon);
 void FreeAccumulatorStruct(Accumulators *accums);
 void SampleNGraphletsInThreads(int seed, int k, GRAPH *G, int varraySize, int numSamples, int numThreads);
 
