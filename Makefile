@@ -20,7 +20,12 @@ endif
 
 HIGH_K_CMODEL_FLAGS :=
 ifdef HIGH_K
-    HIGH_K_CMODEL_FLAGS += -mcmodel=medium
+    ifneq (,$(filter x86_64,$(shell uname -m)))
+        HIGH_K_CMODEL_FLAGS += -mcmodel=medium
+    endif
+    ifneq (,$(filter aarch64 arm64,$(shell uname -m)))
+        HIGH_K_CMODEL_FLAGS += -mcmodel=large -fno-pic -fno-pie
+    endif
 endif
 
 # to make the prediction version that agrees with the regression tests
@@ -153,7 +158,7 @@ blant: $(OBJS) $(OBJDIR)/libblant.o $(OBJDIR)/mt19937.o
 	$(CXX) -o $@ $(OBJDIR)/libblant.o $(OBJS) $(OBJDIR)/mt19937.o $(BLANT_LINK)
 	./canon-upper.sh
 
-BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -march=native
+BLANT_FAST_FLAGS=-DPARANOID_ASSERTS=0 -DNDEBUG -mtune=generic
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c $(BLANT_HEADERS)
 	@mkdir -p $(dir $@)
