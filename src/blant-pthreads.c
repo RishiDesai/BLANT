@@ -14,6 +14,18 @@
 #include "atomic_utils.h"
 atomic_u64_t nextIndex CACHE_ALIGNED = 0; // single definition
 
+static double *AllocAlignedZeroedDoubles(size_t count)
+{
+    size_t bytes = count * sizeof(double);
+    if (bytes % CACHE_LINE_SIZE != 0) {
+        bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+    }
+    double *ptr = aligned_alloc(CACHE_LINE_SIZE, bytes);
+    if (!ptr) return NULL;
+    memset(ptr, 0, bytes);
+    return ptr;
+}
+
 Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     // Ensure size is a multiple of alignment
@@ -30,6 +42,8 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     memset(accums, 0, aligned_size); // zero out everything including padding
     accums->numCanon = (size_t)_numCanon;
     accums->numOrbits = (size_t)_numOrbits;
+    accums->graphNumNodes = (size_t)G->n;
+    accums->canonicalTrackingEnabled = 1;
 
     if (accums->numOrbits > MAX_ORBITS) {
         Fatal("Internal error: numOrbits=%zu exceeds MAX_ORBITS=%d", accums->numOrbits, MAX_ORBITS);
@@ -50,20 +64,16 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
 
     // initialize GDV vectors if needed
     if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
-        accums->graphletDegreeVector = malloc(accums->numCanon * sizeof(double*));
-        if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
-        for(size_t i = 0; i < accums->numCanon; i++) {
-            size_t bytes = G->n * sizeof(double);
-            // Ensure that size is a multiple of CACHE_LINE_SIZE
-            if (bytes % CACHE_LINE_SIZE != 0) {
-                bytes = (bytes / CACHE_LINE_SIZE + 1) * CACHE_LINE_SIZE;
+        if (accums->numCanon > 0) {
+            accums->graphletDegreeVector = malloc(accums->numCanon * sizeof(double*));
+            if (!accums->graphletDegreeVector) Fatal("Failed to allocate GDV memory");
+            for(size_t i = 0; i < accums->numCanon; i++) {
+                accums->graphletDegreeVector[i] = AllocAlignedZeroedDoubles((size_t)G->n);
+                if (!accums->graphletDegreeVector[i]) {
+                    perror("Failed to allocate memory for GDV vector");
+                    exit(EXIT_FAILURE);
+                }
             }
-            accums->graphletDegreeVector[i] = aligned_alloc(CACHE_LINE_SIZE, bytes);
-            if (!accums->graphletDegreeVector[i]) {
-                perror("Failed to allocate memory for GDV vector");
-                exit(EXIT_FAILURE);
-            }
-            memset(accums->graphletDegreeVector[i], 0, bytes);
         }
     }
 
@@ -92,8 +102,75 @@ Accumulators* InitializeAccumulatorStruct(GRAPH* G) {
     return accums;
 }
 
+int EnsureAccumulatorCanonCapacity(Accumulators *accums, size_t minCanon)
+{
+    if (!accums || !accums->canonicalTrackingEnabled) return 0;
+    if (minCanon <= accums->numCanon) return 1;
+
+#if HIGH_K_SUPPORTED
+    if (_highK_mode != 2) {
+        Fatal("Accumulator canonical index out of bounds: need=%zu have=%zu (highK_mode=%d)",
+              minCanon, accums->numCanon, _highK_mode);
+    }
+    if ((_outputMode & communityDetection) && _communityMode == 'g') {
+        Fatal("Dynamic canonical growth is not supported with communityDetection graph mode in HIGH_K on-the-fly mode");
+    }
+#endif
+
+    if (minCanon > (size_t)MAX_CANONICALS) {
+        Fatal("Requested canonical capacity %zu exceeds MAX_CANONICALS=%d",
+              minCanon, MAX_CANONICALS);
+    }
+
+    size_t oldCanon = accums->numCanon;
+    size_t newCanon = oldCanon ? oldCanon : 1024;
+    while (newCanon < minCanon) {
+        newCanon *= 2;
+        if (newCanon > (size_t)MAX_CANONICALS) {
+            newCanon = (size_t)MAX_CANONICALS;
+            break;
+        }
+    }
+    if (newCanon < minCanon) {
+        Fatal("Could not grow canonical capacity to %zu (capped at %zu)", minCanon, newCanon);
+    }
+
+    double *newGraphletCount = (double *)realloc(accums->graphletCount, newCanon * sizeof(double));
+    double *newGraphletConcentration = (double *)realloc(accums->graphletConcentration, newCanon * sizeof(double));
+    double *newCanonNumStarMotifs = (double *)realloc(accums->canonNumStarMotifs, newCanon * sizeof(double));
+    unsigned long *newBatchRawCount = (unsigned long *)realloc(accums->batchRawCount, newCanon * sizeof(unsigned long));
+    if (!newGraphletCount || !newGraphletConcentration || !newCanonNumStarMotifs || !newBatchRawCount) {
+        Fatal("Failed to grow canonical accumulator arrays from %zu to %zu", oldCanon, newCanon);
+    }
+
+    accums->graphletCount = newGraphletCount;
+    accums->graphletConcentration = newGraphletConcentration;
+    accums->canonNumStarMotifs = newCanonNumStarMotifs;
+    accums->batchRawCount = newBatchRawCount;
+
+    memset(accums->graphletCount + oldCanon, 0, (newCanon - oldCanon) * sizeof(double));
+    memset(accums->graphletConcentration + oldCanon, 0, (newCanon - oldCanon) * sizeof(double));
+    memset(accums->batchRawCount + oldCanon, 0, (newCanon - oldCanon) * sizeof(unsigned long));
+    for (size_t i = oldCanon; i < newCanon; i++) accums->canonNumStarMotifs[i] = -1;
+
+    if (_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) {
+        double **newGDV = (double **)realloc(accums->graphletDegreeVector, newCanon * sizeof(double*));
+        if (!newGDV) Fatal("Failed to grow GDV pointer array from %zu to %zu", oldCanon, newCanon);
+        accums->graphletDegreeVector = newGDV;
+        for (size_t i = oldCanon; i < newCanon; i++) {
+            accums->graphletDegreeVector[i] = AllocAlignedZeroedDoubles(accums->graphNumNodes);
+            if (!accums->graphletDegreeVector[i]) {
+                Fatal("Failed to allocate GDV row %zu while growing to %zu canonicals", i, newCanon);
+            }
+        }
+    }
+
+    accums->numCanon = newCanon;
+    return 1;
+}
+
 void FreeAccumulatorStruct(Accumulators *accums) {
-    if(_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g'))
+    if((_outputMode & outputGDV || (_outputMode & communityDetection && _communityMode=='g')) && accums->graphletDegreeVector)
         for (size_t i = 0; i < accums->numCanon; i++) free(accums->graphletDegreeVector[i]);
     free(accums->graphletDegreeVector);
     if(_outputMode & outputODV || (_outputMode & communityDetection && _communityMode=='o'))

@@ -301,9 +301,12 @@ void ProcessNodeGraphletNeighbors(GRAPH *G, Gint_type Gint, Gordinal_type GintOr
 #else
     assert(PERMS_CAN2NON); // Apology("Um, don't we need to check PERMS_CAN2NON? See outputODV for correct example");
 #endif
-    if (accums->numCanon > 0 && (size_t)GintOrdinal >= accums->numCanon) {
-        Fatal("Accumulator graphlet-degree index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
-              k, (size_t)GintOrdinal, accums->numCanon);
+    if (!EnsureAccumulatorCanonCapacity(accums, (size_t)GintOrdinal + 1)) {
+        return;
+    }
+    if (!accums->graphletDegreeVector || !accums->graphletDegreeVector[GintOrdinal]) {
+        Fatal("GDV accumulator storage not initialized for canonical ordinal=%zu (k=%d)",
+              (size_t)GintOrdinal, k);
     }
     for(c=0;c<k;c++)
     {
@@ -340,11 +343,7 @@ bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAP
     assert(0 <= GintOrdinal && GintOrdinal < _numCanon);
 #endif
     // _canonNumStarMotifs was previously computed during sampling rather than pre-computed
-    if (accums->numCanon > 0 && accums->graphletCount != NULL && accums->canonNumStarMotifs != NULL && accums->batchRawCount != NULL) {
-        if ((size_t)GintOrdinal >= accums->numCanon) {
-            Fatal("Accumulator canonical index out of bounds for k=%d: ordinal=%zu (accum numCanon=%zu)",
-                  k, (size_t)GintOrdinal, accums->numCanon);
-        }
+    if (EnsureAccumulatorCanonCapacity(accums, (size_t)GintOrdinal + 1)) {
         if(accums->canonNumStarMotifs[GintOrdinal] == -1) {
 	int i;
 	accums->canonNumStarMotifs[GintOrdinal] = 0;
@@ -352,8 +351,8 @@ bool ProcessGraphlet(GRAPH *G, SET *V, unsigned Varray[], const int k, TINY_GRAP
         }
         accums->graphletCount[GintOrdinal]+=weight;
         ++accums->batchRawCount[GintOrdinal];
+        ++accums->batchRawTotalSamples;
     }
-    if (accums->numCanon > 0 && accums->batchRawCount != NULL) ++accums->batchRawTotalSamples;
 
     // case graphletFrequency: break; // already counted above
     if(_outputMode & indexGraphlets || _outputMode&indexGraphletsRNO) {
