@@ -101,7 +101,12 @@ int *_componentSize;
 int *_startNodes, _numStartNodes;
 SET *_startNodeSet;
 
-Gint_type _numOrbits, _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
+Gint_type _numOrbits;
+#if HIGH_K_SUPPORTED
+Gint_type (*_orbitList)[MAX_K] = NULL; // dynamically allocated for HIGH_K
+#else
+Gint_type _orbitList[MAX_CANONICALS][MAX_K]; // map from [ordinal][canonicalNode] to orbit ID.
+#endif
 Gordinal_type _orbitCanonMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 char _orbitCanonNodeMapping[MAX_ORBITS]; // Maps orbits to canonical (including disconnected)
 int *_whichComponent;
@@ -709,6 +714,14 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
         _sampleMethod == SAMPLE_EDGE_EXPANSION || _sampleMethod == SAMPLE_NODE_EXPANSION ||
         _sampleMethod == SAMPLE_MCMC
     ) {
+#if HIGH_K_SUPPORTED
+        // HIGH_K path has shown environment-dependent instability in threaded mode.
+        // Keep sampling single-threaded for reproducibility across runtimes.
+        if (_numThreads > 1) {
+            Note("HIGH_K build forcing -t1 for stability across environments.");
+            _numThreads = 1;
+        }
+#endif
         // Apologize if _numThreads > 1 for a sampling method or output mode that isn't yet supported by multithreading
         if (_numThreads > 1) {
             bool mcmcThreadSafe = false;
@@ -775,8 +788,9 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
 		// 300000; //1000*sqrt(_numOrbits); //heuristic: batchSizes smaller than this lead to spurious early stops
                 int batchSize = G->numEdges * sqrt(G->n) * sqrt(_numThreads);
 
-                STAT *sTotal[MAX_CANONICALS];
-		if(_desiredPrec && _quiet<2) {
+                STAT **sTotal = calloc(_numCanon, sizeof(*sTotal));
+                if (!sTotal) Fatal("Failed to allocate precision stats array for %zu canonicals", (size_t)_numCanon);
+		if(_desiredPrec && _quiet<2)
 		    Note("using batchSize %u to estimate counts with relative precision %g (%g digit%s) with %g%% confidence",
 			batchSize, _desiredPrec, _desiredDigits, (fabs(1-_desiredDigits)<1e-6?"":"s"), 100*_confidence);
                 for(i=0; i<_numCanon; i++) if(SetIn(_connectedCanonicals,i)) sTotal[i] = StatAlloc(0,0,0, false, false);
@@ -877,11 +891,12 @@ static int RunBlantFromGraph(int k, unsigned long numSamples, GRAPH *G) {
                 else {
                     if(_quiet<3) Warning("invalid batch %d, batchTotal is zero", batchCounter);
                 }
+                for(i=0; i<_numCanon; i++) if(sTotal[i]) StatFree(sTotal[i]);
+                free(sTotal);
             } else {
                 Fatal("RunBlantFromGraph: unknown _stopMode %d", _stopMode);
             }
         }
-    }
 
 	// If we ran in single-threaded mode, we must now merge the
 	// singleThreadAccums into the global accumulators.

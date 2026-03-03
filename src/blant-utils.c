@@ -8,6 +8,9 @@
 #include "blant-predict.h"
 #include "bintree.h"
 #include "sim_anneal.h"
+#if HIGH_K_SUPPORTED
+#include "blant-highk.h"
+#endif
 
 // The following is the most compact way to store the permutation between a non-canonical and its canonical representative,
 // when k=8: there are 8 entries, and each entry is a integer from 0 to 7, which requires 3 bits. 8*3=24 bits total.
@@ -122,7 +125,17 @@ Gordinal_type L_K_Func(Gint_type Gint) {
     return s;
 }
 #else
-Gordinal_type L_K_Func(Gint_type Gint) { Apology("no L_K_Func"); return -1; }
+Gordinal_type L_K_Func(Gint_type Gint) {
+#if HIGH_K_SUPPORTED
+    /* HIGH_K binary: always use nauty for canonical lookup (all k).
+     * The mmap'd .bin files have wrong type sizes for the HIGH_K build. */
+    unsigned char perm[MAX_K];
+    memset(perm, 0, sizeof(perm));
+    return HighK_ExtractPerm(perm, Gint, _k);
+#else
+    Apology("no L_K_Func"); return -1;
+#endif
+}
 #endif
 
 // Assuming the global variable _k is set properly, go read in and/or mmap the big global
@@ -132,6 +145,77 @@ void SetGlobalCanonMaps(void)
     int i;
     char BUF[BUFSIZ];
     assert(3 <= _k && _k <= MAX_K);
+
+#if HIGH_K_SUPPORTED
+    {
+	/* HIGH_K binary: use nauty-based canonical labeling for ALL k values.
+	 * The mmap'd .bin files have incompatible type sizes (written with
+	 * TINY_SET_SIZE=8, but this binary uses TINY_SET_SIZE=16), so we
+	 * always use the text-based canon_list files + nauty hash map.
+	 */
+	HighK_Init(_k);
+	_Bk = 0;
+	_K = NULL;
+	Permutations = NULL;
+
+	if (_highK_mode == 1) {
+	    _numCanon = HighK_NumCanonicals();
+	    _numOrbits = HighK_NumOrbits();
+	} else {
+	    _numCanon = 0;
+	    _numOrbits = 0;
+	}
+	_numConnectedCanon = 0;
+	_numConnectedOrbits = 0;
+	_connectedCanonicals = SetAlloc(MAX(_numCanon, 1));
+
+	/* Copy dynamic arrays into static arrays for compatibility with
+	 * sampling/output code that references _canonList[], _orbitList[], etc.
+	 */
+	if (_highK_mode == 1 && _numCanon > 0) {
+	    Gordinal_type copyN = _numCanon < MAX_CANONICALS ? _numCanon : MAX_CANONICALS;
+	    for (i = 0; i < (int)copyN; i++) {
+		_canonList[i] = _dyn_canonList[i];
+		_canonNumEdges[i] = _dyn_canonNumEdges[i];
+		_alphaList[i] = _dyn_alphaList ? _dyn_alphaList[i] : 1;
+		if (_dyn_canonNumEdges[i] > 0) {
+		    SetAdd(_connectedCanonicals, i);
+		    _numConnectedCanon++;
+		}
+	    }
+	    /* Allocate and copy orbit data if loaded.
+	     * _orbitList is a pointer in the HIGH_K build (too large for BSS
+	     * at MAX_CANONICALS=12M). Only allocate up to the actual copyN.
+	     */
+	    if (_dyn_orbitList) {
+		Gint_type copyO = _numOrbits < MAX_ORBITS ? _numOrbits : MAX_ORBITS;
+		_orbitList = (Gint_type (*)[MAX_K])calloc(copyN, sizeof(Gint_type[MAX_K]));
+		if (_orbitList) {
+		    for (i = 0; i < (int)copyN; i++)
+			for (int j = 0; j < _k && j < MAX_K; j++)
+			    _orbitList[i][j] = _dyn_orbitList[i][j];
+		}
+		for (i = 0; i < (int)copyO; i++) {
+		    _orbitCanonMapping[i] = _dyn_orbitCanonMapping[i];
+		    _orbitCanonNodeMapping[i] = _dyn_orbitCanonNodeMapping[i];
+		    if (SetIn(_connectedCanonicals, _orbitCanonMapping[i]))
+			_connectedOrbits[_numConnectedOrbits++] = i;
+		}
+	    }
+	}
+
+	/* Initialize static alpha list to 1 (raw counts) to prevent
+	 * division by zero in sampling code for on-the-fly mode. */
+	for (i = 0; i < MAX_CANONICALS; i++)
+	    _alphaList[i] = 1;
+
+	_rawCounts = true;
+	fprintf(stderr, "HighK: k=%d, numCanon=%lu, mode=%d, raw counts enabled\n",
+	    _k, (unsigned long)_numCanon, _highK_mode);
+	return;
+    }
+#else
+    /* Original flat-table path (non-HIGH_K build, k<=8 only) */
 #if SELF_LOOPS
     _Bk = (1U <<(_k*(_k+1)/2));
 #else
@@ -154,6 +238,7 @@ void SetGlobalCanonMaps(void)
 	    _connectedOrbits[_numConnectedOrbits++] = i;
     if ((_outputMode & outputODV && _k == 4) || _k == 5)
 	orcaOrbitMappingPopulate(BUF, _orca_orbit_mapping, _k);
+#endif
 }
 
 void LoadMagicTable(void)
@@ -181,6 +266,12 @@ void LoadMagicTable(void)
 // There is the inverse transformation, called "EncodePerm", in createBinData.c.
 Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 {
+#if HIGH_K_SUPPORTED
+    /* HIGH_K binary: always use nauty for canonical form + permutation.
+     * The mmap'd .bin files have incompatible type sizes. */
+    return HighK_ExtractPerm(perm, Gint, _k);
+#else
+    /* Original flat-table path for k<=8 */
     assert(Permutations);
     if(Permutations) {
 	int j, i32 = 0;
@@ -188,7 +279,8 @@ Gordinal_type ExtractPerm(unsigned char perm[_k], Gint_type Gint)
 	for(j=0;j<_k;j++)
 	    perm[j] = (i32 >> 3*j) & 7;
 	return _K[Gint];
-    } else return 0; // Predict_canon_to_ordinal(Predict_canon_map(Gint, _k, perm), _k);
+    } else return 0;
+#endif
 }
 
 void InvertPerm(unsigned char inv[_k], const unsigned char perm[_k])
